@@ -40,10 +40,10 @@
 #include <sys/select.h>
 #include <signal.h>
 
+#include "lima/ThreadUtils.h"
+#include "lima/Exceptions.h"
+#include "lima/Debug.h"
 #include "MerlinNet.h"
-#include "ThreadUtils.h"
-#include "Exceptions.h"
-#include "Debug.h"
 
 using namespace std;
 using namespace lima;

@@ -26,11 +26,11 @@
 #include <math.h>
 #include <climits>
 #include <iomanip>
-#include "MerlinCamera.h"
-#include "Exceptions.h"
-#include "Debug.h"
 #include <errno.h>
-#include "MiscUtils.h"
+#include "lima/Exceptions.h"
+#include "lima/Debug.h"
+#include "lima/MiscUtils.h"
+#include "MerlinCamera.h"
 
 using namespace lima;
 using namespace lima::Merlin;

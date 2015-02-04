@@ -25,11 +25,11 @@
 
 #include <ostream>
 #include <map>
-#include "HwMaxImageSizeCallback.h"
-#include "HwBufferMgr.h"
-#include "HwInterface.h"
+#include "lima/HwMaxImageSizeCallback.h"
+#include "lima/HwBufferMgr.h"
+#include "lima/HwInterface.h"
+#include "lima/Debug.h"
 #include "MerlinInterface.h"
-#include "Debug.h"
 #include "MerlinNet.h"
 
 using namespace std;

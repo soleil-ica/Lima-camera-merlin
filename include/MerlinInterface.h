@@ -27,7 +27,7 @@
 #ifndef MERLININTERFACE_H_
 #define MERLININTERFACE_H_
 
-#include "HwInterface.h"
+#include "lima/HwInterface.h"
 
 namespace lima {
 namespace Merlin {
