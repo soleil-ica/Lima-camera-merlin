@@ -28,12 +28,12 @@
 #define MERLININTERFACE_H_
 
 #include "lima/HwInterface.h"
+#include "MerlinCamera.h"
 
 namespace lima {
 namespace Merlin {
 
 class Interface;
-class Camera;
 
 /*******************************************************************
  * \class DetInfoCtrlObj

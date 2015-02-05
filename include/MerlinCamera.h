@@ -29,7 +29,6 @@
 #include "lima/HwBufferMgr.h"
 #include "lima/HwInterface.h"
 #include "lima/Debug.h"
-#include "MerlinInterface.h"
 #include "MerlinNet.h"
 
 using namespace std;
@@ -79,6 +78,7 @@ public:
 	void prepareAcq();
 	void startAcq();
 	void stopAcq();
+	void getStatus(DetectorStatus& status);
 	int getNbHwAcquiredFrames();
 
 	// -- detector info object
@@ -188,7 +188,7 @@ private:
 		ACQUISITIONPERIOD,
 		STARTACQUISITION,
 		STOPACQUISITION,
-	  SOFTTRIGGER,
+		SOFTTRIGGER,
 		ABORT,
 		THSCAN,
 		RESET,
@@ -224,7 +224,7 @@ private:
 		TRIGGEROUTTTLDELAY,
 		TRIGGEROUTLVDSDELAY,
 		TRIGGERUSEDELAY,
-	  DETECTORSTATUS,
+		DETECTORSTATUS,
 	};
 
 	enum errorCode {

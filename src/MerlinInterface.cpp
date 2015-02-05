@@ -21,7 +21,6 @@
 //###########################################################################
 
 #include "MerlinInterface.h"
-#include "MerlinCamera.h"
 
 using namespace lima;
 using namespace lima::Merlin;
@@ -90,15 +89,17 @@ void Interface::stopAcq() {
 
 void Interface::getStatus(StatusType& status) {
 	DEB_MEMBER_FUNCT();
-	if (m_cam.isAcqRunning()) {
+	status.acq = m_cam.isAcqRunning() ? AcqRunning : AcqReady;
+
+	Camera::DetectorStatus detstat;
+	m_cam.getStatus(detstat);
+	if (detstat == Camera::DetectorStatus::BUSY) {
 		status.det = DetExposure;
-		status.acq = AcqRunning;
-		DEB_TRACE() << "Camera running";
 	} else {
-		status.acq = AcqReady;
 		status.det = DetIdle;
-		DEB_TRACE() << "Camera idle";
 	}
+
+	DEB_RETURN() << DEB_VAR1(status);
 }
 
 int Interface::getNbHwAcquiredFrames() {

@@ -21,7 +21,7 @@
 //###########################################################################
 
 #include <cstdlib>
-#include "MerlinCamera.h"
+#include "MerlinInterface.h"
 
 using namespace lima;
 using namespace lima::Merlin;

@@ -125,6 +125,11 @@ void Camera::stopAcq() {
 		m_cond.wait();
 }
 
+void Camera::getStatus(DetectorStatus& status) {
+	DEB_MEMBER_FUNCT();
+	getDetectorStatus(status);
+}
+
 void Camera::readFrame(void *bptr, int frame_nb) {
 	DEB_MEMBER_FUNCT();
 	stringstream cmd;

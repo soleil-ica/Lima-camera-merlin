@@ -10,10 +10,11 @@
 #include <iomanip>
 #include <vector>
 #include <unistd.h>
-#include "CtControl.h"
-#include "CtSaving.h"
-#include "CtAcquisition.h"
-#include "CtImage.h"
+#include "lima/CtControl.h"
+#include "lima/CtSaving.h"
+#include "lima/CtAcquisition.h"
+#include "lima/CtImage.h"
+#include "lima/HwInterface.h"
 #include "MerlinCamera.h"
 #include "MerlinInterface.h"
 
@@ -64,6 +65,10 @@ int main () {
 		float version;
 		m_camera->getSoftwareVersion(version);
 		cout << "Software version: " << version << endl;
+
+		HwInterface::StatusType status;
+		m_interface->getStatus(status);
+		cout << "Detector Status: " << status << endl;
 		/*
 		// Set/Get operations
 		m_camera->getAcquisitionTime(param);

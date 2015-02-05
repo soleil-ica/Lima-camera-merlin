@@ -24,10 +24,15 @@ namespace Merlin {
 
 class Camera {
 
+%TypeHeaderCode
+#include "MerlinCamera.h"
+#include <string>
+%End
+
 public:
 
-	Camera(std::string hostname, int tcpPort = 6342, int udpPort = 6341,
-	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	Camera(std::string hostname, int tcpPort, int udpPort,
+	       int npixels, int nrasters, int nchips, bool simulate);
 	~Camera();
 
 	enum DetectorStatus {
@@ -52,7 +57,7 @@ public:
 	void prepareAcq();
 	void startAcq();
 	void stopAcq();
-	void getStatus(Status& status /Out/);
+	void getStatus(DetectorStatus& status /Out/);
 	int getNbHwAcquiredFrames();
 
 	// -- detector info object
