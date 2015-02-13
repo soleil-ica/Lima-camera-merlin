@@ -65,6 +65,7 @@ MerlinNet::MerlinNet() {
 
 MerlinNet::~MerlinNet() {
 	DEB_DESTRUCTOR();
+	disconnectFromServer();
 }
 
 void MerlinNet::connectToServer(const string hostname, int port) {

@@ -59,9 +59,9 @@ private:
 // @brief  Ctor
 //---------------------------
 
-Camera::Camera(std::string hostname, int tcpPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_hostname(hostname), m_tcpPort(tcpPort), m_dataPort(dataPort), m_npixels(npixels), m_nrasters(nrasters),
-  m_nchips(nchips), m_simulated(simulate) {
+Camera::Camera(std::string hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
+  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(npixels), m_nrasters(nrasters),
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
 
 	DEB_CONSTRUCTOR();
 
@@ -77,7 +77,6 @@ Camera::Camera(std::string hostname, int tcpPort, int dataPort, int npixels, int
 
 Camera::~Camera() {
 	DEB_DESTRUCTOR();
-	m_merlin->disconnectFromServer();
 	delete m_merlin;
 	delete m_acq_thread;
 }
@@ -85,8 +84,8 @@ Camera::~Camera() {
 void Camera::init() {
 	DEB_MEMBER_FUNCT();
 	m_merlin = new MerlinNet();
-	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_hostname, m_tcpPort);
-	m_merlin->connectToServer(m_hostname, m_tcpPort);
+	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_hostname, m_cmdPort);
+	m_merlin->connectToServer(m_hostname, m_cmdPort);
 	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_hostname, m_dataPort);
        	m_merlin->initServerDataPort(m_hostname, m_dataPort);
 }
@@ -135,6 +134,7 @@ void Camera::readFrame(void *bptr, int frame_nb) {
 	stringstream cmd;
 	int npoints = m_npixels * m_nrasters;
 
+	AutoMutex aLock(m_cond.mutex());
 	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR1(frame_nb);
 	if (frame_nb == 0) {
 		m_merlin->getHeader(bptr);
@@ -461,38 +461,41 @@ void Camera::getSoftwareVersion(float &version) {
 
 void Camera::setColourMode(ColourMode mode) {
 	DEB_MEMBER_FUNCT();
-	requestSet(COLOURMODE, mode);
+	bool value = mode;
+	requestSet(COLOURMODE, value);
 }
 
 void Camera::getColourMode(ColourMode &mode) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(COLOURMODE, ival);
-	mode = static_cast<ColourMode>(ival);
+	bool value;
+	requestGet(COLOURMODE, value);
+	mode = static_cast<ColourMode>(value);
 }
 
 void Camera::setChargeSumming(Switch mode) {
 	DEB_MEMBER_FUNCT();
-	requestSet(CHARGESUMMING, mode);
+	bool value = mode;
+	requestSet(CHARGESUMMING, value);
 }
 
 void Camera::getChargeSumming(Switch &mode) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(CHARGESUMMING, ival);
-	mode = static_cast<Switch>(ival);
+	bool value;
+	requestGet(CHARGESUMMING, value);
+	mode = static_cast<Switch>(value);
 }
 
 void Camera::setGain(GainSetting gain) {
 	DEB_MEMBER_FUNCT();
-	requestSet(GAIN, gain);
+	int value = gain;
+	requestSet(GAIN, value);
 }
 
 void Camera::getGain(GainSetting &gain) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(GAIN, ival);
-	gain = static_cast<GainSetting>(ival);
+	int value;
+	requestGet(GAIN, value);
+	gain = static_cast<GainSetting>(value);
 }
 
 void Camera::setContinuousRW(Switch mode) {
@@ -502,32 +505,35 @@ void Camera::setContinuousRW(Switch mode) {
 	if (depth == Camera::BPP24) {
 		THROW_HW_ERROR(Error) << "Cannot set continuous RW with 24bit counter depth";
 	}
-	requestSet(CONTINUOUSRW, mode);
+	int value = mode;
+	requestSet(CONTINUOUSRW, value);
 }
 
 void Camera::getContinuousRW(Switch &mode) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(CONTINUOUSRW, ival);
-	mode = static_cast<Switch>(ival);
+	int value;
+	requestGet(CONTINUOUSRW, value);
+	mode = static_cast<Switch>(value);
 }
 
 void Camera::setEnableCounters(Counter counter) {
 	DEB_MEMBER_FUNCT();
-	requestSet(ENABLECOUNTER1, counter);
+	int value = counter;
+	requestSet(ENABLECOUNTER1, value);
 
 }
 
 void Camera::getEnableCounters(Counter &counter) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(ENABLECOUNTER1, ival);
-	counter = static_cast<Counter>(ival);
+	int value;
+	requestGet(ENABLECOUNTER1, value);
+	counter = static_cast<Counter>(value);
 }
 
 void Camera::setThreshold(Threshold threshold, float kev) {
 	DEB_MEMBER_FUNCT();
-	requestSet(static_cast<ActionCmd>(THRESHOLD_0+threshold), kev);
+	int value = threshold;
+	requestSet(static_cast<ActionCmd>(THRESHOLD_0+value), kev);
 }
 
 void Camera::getThreshold(Threshold threshold, float &kev) {
@@ -537,9 +543,6 @@ void Camera::getThreshold(Threshold threshold, float &kev) {
 
 void Camera::setOperatingEnergy(float kev) {
 	DEB_MEMBER_FUNCT();
-	if (kev < 0.0 || kev > 999.99) {
-		THROW_HW_ERROR(Error) << "Invalid threshold value (keV) " << kev;
-	}
 	stringstream ss;
 	ss << fixed << setprecision(2) << kev;
 	requestSet(OPERATINGENERGY, ss.str());
@@ -552,14 +555,15 @@ void Camera::getOperatingEnergy(float &kev) {
 
 void Camera::setCounterDepth(Depth depth) {
 	DEB_MEMBER_FUNCT();
-	requestSet(COUNTERDEPTH, depth);
+	int value = depth;
+	requestSet(COUNTERDEPTH, value);
 }
 
 void Camera::getCounterDepth(Depth &depth) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(COUNTERDEPTH, ival);
-	depth = static_cast<Depth>(ival);
+	int value;
+	requestGet(COUNTERDEPTH, value);
+	depth = static_cast<Depth>(value);
 }
 
 void Camera::getTemperature(float &temp) {
@@ -612,79 +616,80 @@ void Camera::getFramesPerTrigger(int &frames) {
 
 void Camera::setTriggerStartType(Trigger type) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGERSTART, type);
+	int value = type;
+	requestSet(TRIGGERSTART, value);
 }
 
 void Camera::getTriggerStartType(Trigger &type) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(TRIGGERSTART, ival);
-	type = static_cast<Trigger>(ival);
+	int value;
+	requestGet(TRIGGERSTART, value);
+	type = static_cast<Trigger>(value);
 }
 
 void Camera::setTriggerStopType(Trigger type) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGERSTOP, type);
+	int value = type;
+	requestSet(TRIGGERSTOP, value);
 }
 
 void Camera::getTriggerStopType(Trigger &type) {
 	DEB_MEMBER_FUNCT();
-	int ival;
-	requestGet(TRIGGERSTOP, ival);
-	type = static_cast<Trigger>(ival);
-}
-
-void Camera::getTriggerOutTTL(TriggerOutput &trigOut) {
-	DEB_MEMBER_FUNCT();
-	int out;
-	requestGet(TRIGGEROUTTTL, out);
-	trigOut = static_cast<TriggerOutput>(out);
+	int value;
+	requestGet(TRIGGERSTOP, value);
+	type = static_cast<Trigger>(value);
 }
 
 void Camera::setTriggerOutTTL(TriggerOutput trigOut) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTTTL, trigOut);
+	int value = trigOut;
+	requestSet(TRIGGEROUTTTL, value);
 }
 
-void Camera::getTriggerOutLVDS(TriggerOutput &trigOut) {
+void Camera::getTriggerOutTTL(TriggerOutput &trigOut) {
 	DEB_MEMBER_FUNCT();
-	int out;
-	requestGet(TRIGGEROUTLVDS, out);
-	trigOut = static_cast<TriggerOutput>(out);
+	int value;
+	requestGet(TRIGGEROUTTTL, value);
+	trigOut = static_cast<TriggerOutput>(value);
 }
 
 void Camera::setTriggerOutLVDS(TriggerOutput trigOut) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTLVDS, trigOut);
+	int value = trigOut;
+	requestSet(TRIGGEROUTLVDS, value);
 }
 
-void Camera::getTriggerOutTTLInvert(TriggerLevel &trigLevel) {
+void Camera::getTriggerOutLVDS(TriggerOutput &trigOut) {
 	DEB_MEMBER_FUNCT();
-	int level;
-	requestGet(TRIGGEROUTTTLINVERT, level);
-	trigLevel = static_cast<TriggerLevel>(level);
+	int value;
+	requestGet(TRIGGEROUTLVDS, value);
+	trigOut = static_cast<TriggerOutput>(value);
 }
 
 void Camera::setTriggerOutTTLInvert(TriggerLevel trigLevel) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTTTLINVERT, trigLevel);
+	int value = trigLevel;
+	requestSet(TRIGGEROUTTTLINVERT, value);
 }
 
-void Camera::getTriggerOutLVDSInvert(TriggerLevel &trigLevel) {
+void Camera::getTriggerOutTTLInvert(TriggerLevel &trigLevel) {
 	DEB_MEMBER_FUNCT();
-	int level;
-	requestGet(TRIGGEROUTLVDSINVERT, level);
-	trigLevel = static_cast<TriggerLevel>(level);
+	int value;
+	requestGet(TRIGGEROUTTTLINVERT, value);
+	trigLevel = static_cast<TriggerLevel>(value);
 }
 
 void Camera::setTriggerOutLVDSInvert(TriggerLevel trigLevel) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTLVDSINVERT, trigLevel);
+	int value = trigLevel;
+	requestSet(TRIGGEROUTLVDSINVERT, value);
 }
 
-void Camera::getTriggerOutTTLDelay(long long &delay) {
+void Camera::getTriggerOutLVDSInvert(TriggerLevel &trigLevel) {
 	DEB_MEMBER_FUNCT();
-	requestGet(TRIGGEROUTTTLDELAY, delay);
+	int value;
+	requestGet(TRIGGEROUTLVDSINVERT, value);
+	trigLevel = static_cast<TriggerLevel>(value);
 }
 
 void Camera::setTriggerOutTTLDelay(long long delay) {
@@ -692,9 +697,9 @@ void Camera::setTriggerOutTTLDelay(long long delay) {
 	requestSet(TRIGGEROUTTTLDELAY, delay);
 }
 
-void Camera::getTriggerOutLVDSDelay(long long &delay) {
+void Camera::getTriggerOutTTLDelay(long long &delay) {
 	DEB_MEMBER_FUNCT();
-	requestGet(TRIGGEROUTLVDSDELAY, delay);
+	requestGet(TRIGGEROUTTTLDELAY, delay);
 }
 
 void Camera::setTriggerOutLVDSDelay(long long delay) {
@@ -702,16 +707,22 @@ void Camera::setTriggerOutLVDSDelay(long long delay) {
 	requestSet(TRIGGEROUTLVDSDELAY, delay);
 }
 
-void Camera::getTriggerUseDelay(Switch &mode) {
+void Camera::getTriggerOutLVDSDelay(long long &delay) {
 	DEB_MEMBER_FUNCT();
-	int delay;
-	requestGet(TRIGGERUSEDELAY, delay);
-	mode = static_cast<Switch>(delay);
+	requestGet(TRIGGEROUTLVDSDELAY, delay);
 }
 
 void Camera::setTriggerUseDelay(Switch mode) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGERUSEDELAY, mode);
+	int value = mode;
+	requestSet(TRIGGERUSEDELAY, value);
+}
+
+void Camera::getTriggerUseDelay(Switch &mode) {
+	DEB_MEMBER_FUNCT();
+	int value;
+	requestGet(TRIGGERUSEDELAY, value);
+	mode = static_cast<Switch>(value);
 }
 
 void Camera::setTHScanNum(int num) {
@@ -719,12 +730,12 @@ void Camera::setTHScanNum(int num) {
 	if (num < 0 || num > 7) {
 		THROW_HW_ERROR(Error) << "Invalid scan number " << num;
 	}
-	requestSet(THSCANNUM, num);
+	requestSet(THSCAN, num);
 }
 
 void Camera::getTHScanNum(int &num) {
 	DEB_MEMBER_FUNCT();
-	requestGet(THSCANNUM, num);
+	requestGet(THSCAN, num);
 }
 
 void Camera::setTHStart(float kev) {
@@ -772,6 +783,39 @@ void Camera::getTHStep(float &kev) {
 	requestGet(THSTEP, kev);
 }
 
+void Camera::setFileDirectory(string directory) {
+	DEB_MEMBER_FUNCT();
+	requestSet(FILEDIRECTORY, directory);
+}
+
+void Camera::getFileDirectory(string &directory) {
+	DEB_MEMBER_FUNCT();
+	requestGet(FILEDIRECTORY, directory);
+}
+
+void Camera::setFileName(string filename) {
+	DEB_MEMBER_FUNCT();
+	requestSet(FILENAME, filename);
+}
+
+void Camera::getFileName(string &filename) {
+	DEB_MEMBER_FUNCT();
+	requestGet(FILENAME, filename);
+}
+
+void Camera::setFileEnable(Switch mode) {
+	DEB_MEMBER_FUNCT();
+	bool value = mode;
+	requestSet(FILEENABLE, value);
+}
+
+void Camera::getFileEnable(Switch &mode) {
+	DEB_MEMBER_FUNCT();
+	bool value;
+	requestGet(FILEENABLE, value);
+	mode = static_cast<Switch>(value);
+}
+
 void Camera::getDetectorStatus(DetectorStatus &status) {
 	DEB_MEMBER_FUNCT();
 	int stat;
@@ -808,6 +852,15 @@ void Camera::requestGet(ActionCmd actionCmd, T& value) {
 	string command = buildCmd(GET, cmd);
 	sendCmd(GET, command, reply);
 	stringstream(decodeReply(cmd, reply)) >> value;
+}
+
+void Camera::requestGet(ActionCmd actionCmd, string& value) {
+	DEB_MEMBER_FUNCT();
+	string reply;
+	string cmd = actionCmdMap[actionCmd];
+	string command = buildCmd(GET, cmd);
+	sendCmd(GET, command, reply);
+	value = decodeReply(cmd, reply);
 }
 
 string Camera::buildCmd(Action type, const string cmd, string value) {
@@ -892,7 +945,7 @@ std::map<Camera::ActionCmd, std::string> Camera::actionCmdMap = {
 	{THRESHOLD_5, "THRESHOLD5"},
 	{THRESHOLD_6, "THRESHOLD6"},
 	{THRESHOLD_7, "THRESHOLD7"},
-	{THSCANNUM, "THSCAN"},
+//	{THSCANNUM, "THSCAN"},
 	{THSTART, "THSTART"},
 	{THSTEP, "THSTEP"},
 	{THSTOP, "THSTOP"},
@@ -905,6 +958,9 @@ std::map<Camera::ActionCmd, std::string> Camera::actionCmdMap = {
 	{TRIGGEROUTTTLDELAY, "TriggerOutTTLDelay"},
 	{TRIGGEROUTLVDSDELAY, "TriggerOutLVDSDelay"},
 	{TRIGGERUSEDELAY, "TriggerUseDelay"},
+	{FILEDIRECTORY, "FILEDIRECTORY"},
+	{FILENAME, "FILENAME"},
+	{FILEENABLE, "FILEENABLE"},
 	{DETECTORSTATUS, "DETECTORSTATUS"},
 };
 
@@ -923,6 +979,8 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
+// ----------------------- Simulate code now --------------------
+
 void Camera::simulate(Action type, string cmd, string& reply) {
 	DEB_MEMBER_FUNCT();
 	DEB_TRACE() << "sendCmd(" << cmd << ")";
@@ -931,9 +989,9 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 	static bool chargeSumming = false;
 	static bool colourMode = false;
 	static bool continuousRW = false;
-	static Depth counterDepth = Camera::BPP24;
-	static Counter enableCounters = Camera::COUNTER0;
-	static GainSetting gain = Camera::SLGM;
+	static int counterDepth = Camera::BPP24;
+	static int enableCounters = Camera::COUNTER0;
+	static int gain = Camera::SLGM;
 	static int framesPerTrigger = 1;
 	static int numFramesToAcquire = 1;
 	static float operatingEnergy = 300.0;
@@ -950,9 +1008,20 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 	static float thStart = 0.0;
 	static float thStep = 0.1;
 	static float thStop = 1.0;
-	static Trigger triggerStart = Camera::INTERNAL;
-	static Trigger triggerStop = Camera::INTERNAL;
+	static int triggerStart = Camera::INTERNAL;
+	static int triggerStop = Camera::INTERNAL;
+	static int trigoutTTL = Camera::TTL;
+	static int trigoutLVDS = Camera::LVDS;
+	static int trigTTLlevel = Camera::INVERTED;
+	static int trigLVDSlevel = Camera::NORMAL;
+	static int64_t trigoutTTLdelay = 456789;
+	static int64_t trigoutLVDSdelay = 987654;
+	static bool trigUseDelay = false;
 	static float version = 1.1;
+	static string fileDirectory = "c:\\users\\";
+	static string fileName = "testing";
+	static bool fileEnable = false;
+	static int detStatus= Camera::IDLE;
 
 	vector<string> tokens = ::split(cmd, ',');
 	stringstream ss;
@@ -1031,7 +1100,7 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 		case THRESHOLD_7:
 			ss << "," << threshold7;
 			break;
-		case THSCANNUM:
+		case THSCAN:
 			ss << "," << thScanNum;
 			break;
 		case THSTART:
@@ -1048,6 +1117,39 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 			break;
 		case TRIGGERSTOP:
 			ss << "," << triggerStop;
+			break;
+		case TRIGGEROUTTTL:
+			ss << "," << trigoutTTL;
+			break;
+		case TRIGGEROUTLVDS:
+			ss << "," << trigoutLVDS;
+			break;
+		case  TRIGGEROUTTTLINVERT:
+			ss << "," << trigTTLlevel;
+			break;
+		case TRIGGEROUTLVDSINVERT:
+			ss << "," << trigLVDSlevel;
+			break;
+		case TRIGGEROUTTTLDELAY:
+			ss << "," << trigoutTTLdelay;
+			break;
+		case TRIGGEROUTLVDSDELAY:
+			ss << "," << trigoutLVDSdelay;
+			break;
+		case TRIGGERUSEDELAY:
+			ss << "," << trigUseDelay;
+			break;
+		case FILEDIRECTORY:
+			ss << "," << fileDirectory;
+			break;
+		case FILENAME:
+			ss << "," << fileName;
+			break;
+		case FILEENABLE:
+			ss << "," << fileEnable;
+			break;
+		case DETECTORSTATUS:
+			ss << "," << detStatus;
 			break;
 		default:
 			ss << "," << tokens[4];
@@ -1110,7 +1212,6 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 			break;
 		case THRESHOLD_5:
 			stringstream(tokens[4]) >> threshold5;
-			ss << "," << threshold5;
 			break;
 		case THRESHOLD_6:
 			stringstream(tokens[4]) >> threshold6;
@@ -1118,7 +1219,7 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 		case THRESHOLD_7:
 			stringstream(tokens[4]) >> threshold7;
 			break;
-		case THSCANNUM:
+		case THSCAN:
 			stringstream(tokens[4]) >> thScanNum;
 			break;
 		case THSTART:
@@ -1137,6 +1238,41 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 		case TRIGGERSTOP:
 			stringstream(tokens[4]) >> value;
 			triggerStop = static_cast<Trigger>(value);
+			break;
+		case TRIGGEROUTTTL:
+			stringstream(tokens[4]) >> value;
+			trigoutTTL = static_cast<TriggerOutput>(value);
+			break;
+		case TRIGGEROUTLVDS:
+			stringstream(tokens[4]) >> value;
+			trigoutLVDS = static_cast<TriggerOutput>(value);
+			break;
+		case  TRIGGEROUTTTLINVERT:
+			stringstream(tokens[4]) >> value;
+			trigTTLlevel = static_cast<TriggerLevel>(value);
+			break;
+		case TRIGGEROUTLVDSINVERT:
+			stringstream(tokens[4]) >> value;
+			trigLVDSlevel = static_cast<TriggerLevel>(value);
+			break;
+		case TRIGGEROUTTTLDELAY:
+			stringstream(tokens[4]) >> trigoutTTLdelay;
+			break;
+		case TRIGGEROUTLVDSDELAY:
+			stringstream(tokens[4]) >> trigoutLVDSdelay;
+			break;
+		case TRIGGERUSEDELAY:
+			stringstream(tokens[4]) >> value;
+			trigUseDelay = static_cast<Switch>(value);
+			break;
+		case FILEDIRECTORY:
+			fileDirectory = tokens[4];
+			break;
+		case FILENAME:
+			fileName = tokens[4];
+			break;
+		case FILEENABLE:
+			stringstream(tokens[4]) >> fileEnable;
 			break;
 		default:
 			rc = 2;

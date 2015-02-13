@@ -47,7 +47,7 @@ CXXFLAGS += -DWITH_SPS_IMAGE -I../../third-party/libconfig/lib
 LDLIBS += -L../../../third-party/sps/lib/.libs -lconfig
 endif
 
-HDF5_LDFLAGS := -L../../../third-party/hdf5/lib
+HDF5_LDFLAGS := -L../../../third-party/hdf5/lib -L../../../install/Lima/lib
 HDF5_LDLIBS := -lhdf5_cpp -lhdf5
 
 test-progs = merlintest

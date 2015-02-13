@@ -31,7 +31,7 @@ class Camera {
 
 public:
 
-	Camera(std::string hostname, int tcpPort, int udpPort,
+	Camera(std::string hostname, int cmdPort, int dataPort,
 	       int npixels, int nrasters, int nchips, bool simulate);
 	~Camera();
 
@@ -48,7 +48,7 @@ public:
 	enum Trigger {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT};
 	enum TriggerOutput {TTL, LVDS, TTL_DELAYED, LVDS_DELAYED, FOLLOW_SHUTTER, ONE_PER_ACQ_BURST,
 			   SHUTTER_AND_SENSOR_READ, OUTPUT_BUSY};
-	enum TriggerLevel {NORNAL, INVERTED};
+	enum TriggerLevel {NORMAL, INVERTED};
 	enum Threshold {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
 		THRESHOLD5, THRESHOLD6, THRESHOLD7};
 
@@ -153,6 +153,12 @@ public:
 	void getTHStop(float &kev /Out/);
 	void setTHStep(float kev);
 	void getTHStep(float &kev /Out/);
+	void setFileDirectory(std::string directory);
+	void getFileDirectory(std::string &directory /Out/);
+	void setFileName(std::string filename);
+	void getFileName(std::string &filename /Out/);
+	void setFileEnable(Switch mode);
+	void getFileEnable(Switch &mode /Out/);
 	void getDetectorStatus(DetectorStatus &status /Out/);
 };
 

@@ -285,6 +285,7 @@ int main () {
 			if (!m_camera->isAcqRunning())
 				break;
 		}
+		sleep(5); //all done!
 
 	} catch (Exception &e) {
 

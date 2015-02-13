@@ -52,7 +52,7 @@ DEB_CLASS_NAMESPC(DebModCamera, "Camera", "Merlin");
 
 public:
 
-	Camera(std::string hostname, int tcpPort = 6342, int udpPort = 6341,
+	Camera(std::string hostname, int cmdPort = 6341, int dataPort = 6342,
 	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
 	~Camera();
 	
@@ -69,7 +69,7 @@ public:
 	enum Trigger {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT};
 	enum TriggerOutput {TTL, LVDS, TTL_DELAYED, LVDS_DELAYED, FOLLOW_SHUTTER, ONE_PER_ACQ_BURST,
 			   SHUTTER_AND_SENSOR_READ, OUTPUT_BUSY};
-	enum TriggerLevel {NORNAL, INVERTED};
+	enum TriggerLevel {NORMAL, INVERTED};
 	enum Threshold {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
 		THRESHOLD5, THRESHOLD6, THRESHOLD7};
 
@@ -174,6 +174,12 @@ public:
 	void getTHStop(float &kev);
 	void setTHStep(float kev);
 	void getTHStep(float &kev);
+	void setFileDirectory(string directory);
+	void getFileDirectory(string &directory);
+	void setFileName(string filename);
+	void getFileName(string &filename);
+	void setFileEnable(Switch mode);
+	void getFileEnable(Switch &mode);
 	void getDetectorStatus(DetectorStatus &status);
 
 private:
@@ -224,6 +230,9 @@ private:
 		TRIGGEROUTTTLDELAY,
 		TRIGGEROUTLVDSDELAY,
 		TRIGGERUSEDELAY,
+		FILEDIRECTORY,
+		FILENAME,
+		FILEENABLE,
 		DETECTORSTATUS,
 	};
 
@@ -236,7 +245,7 @@ private:
 
 	MerlinNet *m_merlin;
 	string m_hostname;
-	int m_tcpPort;
+	int m_cmdPort;
 	int m_dataPort;
 	int m_npixels;
 	int m_nrasters;
@@ -268,11 +277,90 @@ private:
 	void requestCmd(ActionCmd cmd);
 	template <typename T> void requestSet(ActionCmd cmd, T value);
 	template <typename T> void requestGet(ActionCmd cmd, T& value);
+	void requestGet(ActionCmd actionCmd, string& value);
 
 	static std::map<ActionCmd, std::string> actionCmdMap;
 
 	void readFrame(void *bptr, int frame_nb);
 };
+
+
+inline ostream& operator <<(ostream& os, Camera::ColourMode &colourMode) {
+	const char* name = "Unknown";
+	switch (colourMode) {
+	case Camera::Monochrome: name = "Monochrome";	break;
+	case Camera::Colour: name = "Colour"; break;
+	}
+	return os << name;
+}
+
+inline ostream& operator <<(ostream& os, Camera::Switch &mode) {
+	const char* name = "Unknown";
+	switch (mode) {
+	case Camera::OFF: name = "Disabled";	break;
+	case Camera::ON: name = "Enabled"; break;
+	}
+	return os << name;
+}
+
+inline ostream& operator <<(ostream& os, Camera::GainSetting &gain) {
+	const char* name = "Unknown";
+	switch (gain) {
+	case Camera::SLGM: name = "SuperLowGainMode";	break;
+	case Camera::LGM: name = "LowGainMode"; break;
+	case Camera::HGM: name = "HighGainMode";	break;
+	case Camera::SHGM: name = "SuoerHighGainMode";	break;
+	}
+	return os << name;
+}
+
+inline ostream& operator <<(ostream& os, Camera::Counter &counter) {
+	const char* name = "Unknown";
+	switch (counter) {
+	case Camera::COUNTER0: name = "Counter0";	break;
+	case Camera::COUNTER1: name = "Counter1"; break;
+	case Camera::BOTH: name = "Both";	break;
+	}
+	return os << name;
+}
+
+inline std::ostream& operator <<(std::ostream& os, Camera::Trigger const &trigger) {
+	const char* name = "Unknown";
+	switch (trigger) {
+	case Camera::INTERNAL: name = "Internal";	break;
+	case Camera::RISING_EDGE_TTL: name = "RisingEdgeTTL";	break;
+	case Camera::FALLING_EDGE_TTL: name = "FallingEdgeTTL";	break;
+	case Camera::RISING_EDGE_LVDS: name = "RisingEdgeLVDS";	break;
+	case Camera::FALLING_EDGE_LVDS: name = "FallingEdgeLVDS";	break;
+	case Camera::SOFT: name = "Soft";	break;
+	}
+	return os << name;
+}
+
+inline std::ostream& operator <<(std::ostream& os, Camera::TriggerOutput const &trigOut) {
+	const char* name = "Unknown";
+	switch (trigOut) {
+	case Camera::TTL: name = "TTL";	break;
+	case Camera::LVDS: name = "LVDS";	break;
+	case Camera::TTL_DELAYED: name = "TTLDelayed";	break;
+	case Camera::LVDS_DELAYED: name = "LVDSDelayed";	break;
+	case Camera::FOLLOW_SHUTTER: name = "FollowShutter";	break;
+	case Camera::ONE_PER_ACQ_BURST: name = "OneAcqPerBurst";	break;
+	case Camera::SHUTTER_AND_SENSOR_READ: name = "ShutterAndSensorBusy";	break;
+	case Camera::OUTPUT_BUSY: name = "OutputBusy";	break;
+	 name = "";	break;
+	}
+	return os << name;
+}
+
+inline std::ostream& operator <<(std::ostream& os, Camera::TriggerLevel const &trigLevel) {
+	const char* name = "Unknown";
+	switch (trigLevel) {
+	case Camera::NORMAL: name = "Normal";	break;
+	case Camera::INVERTED: name = "Inverted";	break;
+	}
+	return os << name;
+}
 
 } // namespace Merlin
 } // namespace lima
