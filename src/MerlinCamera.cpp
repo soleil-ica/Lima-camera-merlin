@@ -24,6 +24,8 @@
 #include <iostream>
 #include <string>
 #include <math.h>
+#include <signal.h>
+#include <unistd.h>
 #include <climits>
 #include <iomanip>
 #include <errno.h>
@@ -68,6 +70,8 @@ Camera::Camera(std::string hostname, int cmdPort, int dataPort, int npixels, int
 	//	DebParams::setModuleFlags(DebParams::AllFlags);
 	//	DebParams::setTypeFlags(DebParams::AllFlags);
 	//	DebParams::setFormatFlags(DebParams::AllFlags);
+	if(pipe(m_pipes))
+	  THROW_HW_ERROR(Error) << "Can't open pipe";
 	m_acq_thread = new AcqThread(*this);
 	m_acq_thread->start();
 	if (!m_simulated) {
@@ -120,41 +124,49 @@ void Camera::stopAcq() {
 	DEB_MEMBER_FUNCT();
 	AutoMutex aLock(m_cond.mutex());
 	m_wait_flag = true;
-	while (m_thread_running)
-		m_cond.wait();
+	m_cond.broadcast();
+	stopAcquisition();
+	if (write(m_pipes[1], "Q", 1) == -1)
+		THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
 }
 
 void Camera::getStatus(DetectorStatus& status) {
 	DEB_MEMBER_FUNCT();
+	AutoMutex lock(m_cond.mutex());
 	getDetectorStatus(status);
 }
 
-void Camera::readFrame(void *bptr, int frame_nb) {
+bool Camera::readFrame(void *bptr, int frame_nb) {
 	DEB_MEMBER_FUNCT();
 	stringstream cmd;
 	int npoints = m_npixels * m_nrasters;
-
-	AutoMutex aLock(m_cond.mutex());
+        struct timeval tv = {120,0}; // timeout after 2 mins
 	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR1(frame_nb);
-	if (frame_nb == 0) {
-		m_merlin->getHeader(bptr);
+
+	if (m_merlin->select(m_pipes[0], tv)) {
+		AutoMutex aLock(m_cond.mutex());
+		if (frame_nb == 0) {
+			m_merlin->getHeader(bptr);
+		}
+		m_merlin->getFrameHeader(bptr, npoints);
+		switch (m_image_type) {
+		case Bpp1:
+		case Bpp6:
+			m_merlin->getData(reinterpret_cast<uint8_t*>(bptr), npoints);
+			break;
+		case Bpp12:
+			m_merlin->getData(reinterpret_cast<uint16_t*>(bptr), npoints);
+			break;
+		case Bpp24:
+			m_merlin->getData(reinterpret_cast<uint32_t*>(bptr), npoints);
+			break;
+		default:
+			THROW_HW_ERROR(Error) << "Camera::readFrame(): Wrong ImageType should not happen";
+			break;
+		}
+		return true;
 	}
-	m_merlin->getFrameHeader(bptr, npoints);
-	switch (m_image_type) {
-	case Bpp1:
-	case Bpp6:
-		m_merlin->getData(reinterpret_cast<uint8_t*>(bptr), npoints);
-		break;
-	case Bpp12:
-		m_merlin->getData(reinterpret_cast<uint16_t*>(bptr), npoints);
-		break;
-	case Bpp24:
-		m_merlin->getData(reinterpret_cast<uint32_t*>(bptr), npoints);
-		break;
-	default:
-		THROW_HW_ERROR(Error) << "Wrong ImageType should not happen";
-		break;
-	}
+	return false;
 }
 
 int Camera::getNbHwAcquiredFrames() {
@@ -187,27 +199,19 @@ void Camera::AcqThread::threadFunction() {
 		while (continueFlag && (!m_cam.m_nb_frames || m_cam.m_acq_frame_nb < m_cam.m_nb_frames)) {
 
 			void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
-			m_cam.readFrame(bptr, m_cam.m_acq_frame_nb);
-
-			uint16_t* ibptr = reinterpret_cast<uint16_t*>(bptr);
-			for (int i=0; i<m_cam.m_npixels*m_cam.m_nrasters; i++) {
-				if (ibptr[i] != 0) {
-					cout << "data at " << i << " value " << (int) ibptr[i] << endl;
-				}
+			if (!m_cam.readFrame(bptr, m_cam.m_acq_frame_nb)) {
+				// stop called ?
+				break;
 			}
-
 			HwFrameInfoType frame_info;
 			frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
 			continueFlag = buffer_mgr.newFrameReady(frame_info);
 			DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
-			// stop called ?
-			aLock.lock();
-			continueFlag = !m_cam.m_wait_flag;
-			if (m_cam.m_wait_flag) {
-				DEB_TRACE() << "acq thread histogram stopped  by user";
-				m_cam.stopAcquisition();
+			// problem saving ?
+			if (!continueFlag) {
 				break;
 			}
+			aLock.lock();
 			++m_cam.m_acq_frame_nb;
 			aLock.unlock();
 			DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
@@ -851,6 +855,7 @@ void Camera::requestGet(ActionCmd actionCmd, T& value) {
 	string cmd = actionCmdMap[actionCmd];
 	string command = buildCmd(GET, cmd);
 	sendCmd(GET, command, reply);
+	cout << "***************** " << reply << endl;
 	stringstream(decodeReply(cmd, reply)) >> value;
 }
 

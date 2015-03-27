@@ -47,6 +47,7 @@ public:
 	void getData(uint8_t* bptr, int npoints);
 	void getData(uint16_t* bptr, int npoints);
 	void getData(uint32_t* bptr, int npoints);
+	bool select(int pipefd, timeval& tv);
 
 private:
 	mutable Cond m_cond;
@@ -61,7 +62,6 @@ private:
 	void swab(uint8_t* iptr, int npoints);
 	void swab(uint16_t* iptr, int npoints);
 	void swab(uint32_t* iptr, int npoints);
-
 };
 
 } // namespace Merlin

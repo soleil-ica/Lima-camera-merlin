@@ -263,6 +263,7 @@ private:
 	bool m_wait_flag;
 	bool m_quit;
 	int m_acq_frame_nb; // nos of frames acquired
+	int m_pipes[2];
 	mutable Cond m_cond;
 
 
@@ -281,7 +282,7 @@ private:
 
 	static std::map<ActionCmd, std::string> actionCmdMap;
 
-	void readFrame(void *bptr, int frame_nb);
+	bool readFrame(void *bptr, int frame_nb);
 };
 
 

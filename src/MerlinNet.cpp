@@ -38,7 +38,6 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/select.h>
-#include <signal.h>
 
 #include "lima/ThreadUtils.h"
 #include "lima/Exceptions.h"
@@ -52,15 +51,9 @@ using namespace lima::Merlin;
 
 MerlinNet::MerlinNet() {
 	DEB_CONSTRUCTOR();
-	// Ignore the sigpipe we get we try to send quit to
-	// dead server in disconnect, just use error codes
-	struct sigaction pipe_act;
-	sigemptyset(&pipe_act.sa_mask);
-	pipe_act.sa_flags = 0;
-	pipe_act.sa_handler = SIG_IGN;
-	sigaction(SIGPIPE, &pipe_act, 0);
 	m_connected = false;
 	m_data_sock = -1;
+	m_sock = -1;
 }
 
 MerlinNet::~MerlinNet() {
@@ -198,11 +191,18 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 	}
 	DEB_TRACE() << numhdr << " header bytes to read ";
 
-	if ((count = read(m_data_sock, bptr, numhdr)) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::getData(): read from socket error";
-	}
-	numbuf[count] = 0;
-	DEB_TRACE() << "Read " << count << " bytes of frame header ";
+	int numread = 0;
+	count = 1;
+	while (numread < numhdr && count > 0) {
+		DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);
+		if ((count = read(m_data_sock, bptr, numhdr - numread)) <= 0) {
+			THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error";
+		}
+		numread += count;
+		bptr += count;
+	};
+	*bptr = 0;
+	DEB_TRACE() << "Read " << numread << " bytes of frame header ";
 	return;
 }
 
@@ -232,6 +232,27 @@ void MerlinNet::getFrameData(T* buffer, int npoints) {
 	return;
 }
 
+bool MerlinNet::select(int pipefd, timeval& tv) {
+	DEB_MEMBER_FUNCT();
+	int status;
+	fd_set rfds;
+	FD_ZERO(&rfds);
+	FD_SET(m_data_sock, &rfds);
+	FD_SET(pipefd, &rfds);
+	int nfds = max(m_data_sock, pipefd) + 1;
+	DEB_TRACE() << DEB_VAR3(m_data_sock, pipefd, nfds);
+	if ((status = ::select(nfds, &rfds, NULL, (fd_set*) 0, &tv)) == -1) {
+		THROW_HW_ERROR(Error) << "MerlinNet::select(): pselect system call failed" << errno;
+	}
+	DEB_TRACE() << DEB_VAR1(status);
+	DEB_TRACE() << DEB_VAR1(FD_ISSET(m_data_sock, &rfds));
+	DEB_TRACE() << DEB_VAR1(FD_ISSET(pipefd, &rfds));
+	if (FD_ISSET(pipefd, &rfds)) {
+		char c;
+		read(pipefd, &c, 1);
+	}
+	return status && FD_ISSET(m_data_sock, &rfds);
+}
 
 void MerlinNet::swab(uint8_t* iptr, int npoints) {
 }
