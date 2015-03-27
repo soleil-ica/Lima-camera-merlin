@@ -94,10 +94,8 @@ void Interface::getStatus(StatusType& status) {
 	Camera::DetectorStatus detstat;
 	m_cam.getStatus(detstat);
 	if (detstat == Camera::DetectorStatus::BUSY) {
-	  cout << "DetExposure !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		status.det = DetExposure;
 	} else {
-	  cout << "DetIdle!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		status.det = DetIdle;
 	}
 

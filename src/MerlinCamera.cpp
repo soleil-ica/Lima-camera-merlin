@@ -855,7 +855,6 @@ void Camera::requestGet(ActionCmd actionCmd, T& value) {
 	string cmd = actionCmdMap[actionCmd];
 	string command = buildCmd(GET, cmd);
 	sendCmd(GET, command, reply);
-	cout << "***************** " << reply << endl;
 	stringstream(decodeReply(cmd, reply)) >> value;
 }
 
