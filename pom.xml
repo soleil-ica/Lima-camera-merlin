@@ -9,21 +9,46 @@
 
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaMerlin-${aol}-shared-${mode}</artifactId>
-	<version>1.3.0</version>
+	<version>1.0.0</version>
 	
     <packaging>nar</packaging>
     <name>LimaMerlin</name>
     <description>This module controls the Merlin Camera</description>
 	
+    <scm>
+        <connection>scm:git:git://github.com/soleil-ica/Lima.git</connection>
+        <developerConnection>scm:git:git://github.com/soleil-ica/Lima.git</developerConnection>
+        <url>https://github.com/soleil-ica/Lima</url>
+    </scm>
+
 	<dependencies>
 		<dependency>
 			<groupId>fr.soleil.lib</groupId>
 			<artifactId>LimaCore-${aol}-shared-${mode}</artifactId>
-			<version>1.3.0</version>
+			<version>1.3.3</version>
 		</dependency>
+        
+        <dependency>
+            <groupId>ncsa.uiuc.edu</groupId>
+            <artifactId>HDF5-${aol}-shared-release</artifactId>
+            <version>1.8.13</version>
+        </dependency> 
+                   
+<!--    <dependency>
+      <groupId>fr.soleil.lib</groupId>
+      <artifactId>YAT-${aol}-static-${mode}</artifactId>
+      <version>1.9.6-vc9</version>
+    </dependency>-->
+            
+<!--        <dependency>
+            <groupId>ncsa.uiuc.edu</groupId>
+            <artifactId>HDF5-${aol}-shared-release</artifactId>
+            <version>1.8.13-vc9</version>
+        </dependency>-->
+                
 	</dependencies>
 
-    <build>
+<!--    <build>
         <plugins>
             <plugin>
                 <groupId>org.freehep</groupId>
@@ -34,7 +59,7 @@
 						<includePaths>
 							<includePath>include</includePath>
 						</includePaths>
-						<!-- define less verbose mode for gcc-->
+						 define less verbose mode for gcc
 						<options>
 							<option>-w</option>
 						</options>
@@ -46,9 +71,46 @@
 					</libraries>
                 </configuration>
             </plugin>
+
+            <plugin>
+                <groupId>fr.soleil.maven.plugins</groupId>
+                <artifactId>maven-check-plugin</artifactId>
+                <configuration>
+                    <enable>false</enable>
+                </configuration>
+            </plugin>	
+        </plugins>
+    </build>-->
+	
+<build>
+        <plugins>
+            <plugin>
+                <groupId>org.freehep</groupId>
+                <artifactId>freehep-nar-plugin</artifactId>
+                <configuration>
+                    <cpp>
+                        <sourceDirectory>src</sourceDirectory>
+                        <includePaths>
+                            <includePath>include</includePath>
+                        </includePaths>
+                        <defines>
+                            <define>OS_UNIX</define>
+                        </defines>
+                        <!-- define less verbose mode for gcc-->
+                        <options>
+                            <option>-w</option>
+                        </options>
+                    </cpp>
+                    <libraries>
+                        <library>
+                            <type>shared</type>
+                        </library>
+                    </libraries>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
-	
+        
 	<developers>
        <developer>
            <id>langlois</id>
