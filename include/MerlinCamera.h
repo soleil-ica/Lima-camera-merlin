@@ -72,6 +72,7 @@ public:
 	enum TriggerLevel {NORMAL, INVERTED};
 	enum Threshold {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
 		THRESHOLD5, THRESHOLD6, THRESHOLD7};
+	enum FillMode { NOFILL, INSERTZERO, DISTRIBUTE, INTERPOLATE };
 
 	void init();
 	void reset();
@@ -160,10 +161,10 @@ public:
 	void setTriggerOutTTLInvert(TriggerLevel trigLevel);
 	void getTriggerOutLVDSInvert(TriggerLevel &trigLevel);
 	void setTriggerOutLVDSInvert(TriggerLevel trigLevel);
-	void getTriggerOutTTLDelay(long long &delay);
-	void setTriggerOutTTLDelay(long long delay);
-	void getTriggerOutLVDSDelay(long long &delay);
-	void setTriggerOutLVDSDelay(long long delay);
+	void getTriggerInTTLDelay(long long &delay);
+	void setTriggerInTTLDelay(long long delay);
+	void getTriggerInLVDSDelay(long long &delay);
+	void setTriggerInLVDSDelay(long long delay);
 	void getTriggerUseDelay(Switch &mode);
 	void setTriggerUseDelay(Switch mode);
 	void setTHScanNum(int num);
@@ -181,6 +182,10 @@ public:
 	void setFileEnable(Switch mode);
 	void getFileEnable(Switch &mode);
 	void getDetectorStatus(DetectorStatus &status);
+	void getImageX(int &imagex);
+	void getImageY(int &imagey);
+	void getFillMode(FillMode &mode);
+	void setFillMode(FillMode mode);
 
 private:
 
@@ -227,13 +232,16 @@ private:
 		TRIGGEROUTLVDS,
 		TRIGGEROUTTTLINVERT,
 		TRIGGEROUTLVDSINVERT,
-		TRIGGEROUTTTLDELAY,
-		TRIGGEROUTLVDSDELAY,
+		TRIGGERINTTLDELAY,
+		TRIGGERINLVDSDELAY,
 		TRIGGERUSEDELAY,
 		FILEDIRECTORY,
 		FILENAME,
 		FILEENABLE,
 		DETECTORSTATUS,
+		IMAGEX,
+		IMAGEY,
+		FILLMODE,
 	};
 
 	enum errorCode {
@@ -257,6 +265,7 @@ private:
 	AcqThread *m_acq_thread;
 	TrigMode m_trigger_mode;
 	double m_exp_time;
+	double m_lat_time;
 	ImageType m_image_type;
 	int m_nb_frames; // nos of frames to acquire
 	bool m_thread_running;
@@ -265,6 +274,7 @@ private:
 	int m_acq_frame_nb; // nos of frames acquired
 	int m_pipes[2];
 	mutable Cond m_cond;
+	Counter m_counter;
 
 
 	// Buffer control object
@@ -359,6 +369,17 @@ inline std::ostream& operator <<(std::ostream& os, Camera::TriggerLevel const &t
 	switch (trigLevel) {
 	case Camera::NORMAL: name = "Normal";	break;
 	case Camera::INVERTED: name = "Inverted";	break;
+	}
+	return os << name;
+}
+
+inline std::ostream& operator <<(std::ostream& os, Camera::FillMode const &mode) {
+	const char* name = "Unknown";
+	switch (mode) {
+	case Camera::NOFILL: name = "NoFill";	break;
+	case Camera::INSERTZERO: name = "InsertZero";	break;
+	case Camera::DISTRIBUTE: name = "Distribute";	break;
+	case Camera::INTERPOLATE: name = "Interpolate";	break;
 	}
 	return os << name;
 }

@@ -52,7 +52,7 @@ int main () {
 
 	try {
 
-	  m_camera = new Camera(hostname, port, dataPort, nx, ny, nchips, simulate);
+		m_camera = new Camera(hostname, port, dataPort, nx, ny, nchips, simulate);
 		m_interface = new Interface(*m_camera);
 		m_control = new CtControl(m_interface);
 
@@ -285,7 +285,7 @@ int main () {
 			if (!m_camera->isAcqRunning())
 				break;
 		}
-		sleep(5); //all done!
+		sleep(5);
 
 	} catch (Exception &e) {
 

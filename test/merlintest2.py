@@ -28,9 +28,11 @@ for i in range(100):
     lima.command_inout("prepareAcq")
     lima.command_inout("startAcq")
 
-    while dev.read_attribute("acqRunning").value :
-        time.sleep(.2)
-        print "running"
+#    while dev.read_attribute("acqRunning").value :
+    time.sleep(.3)
+#        print "running"
+    lima.command_inout("stopAcq")
+       
 
     print "Completed ", i, " - idle"
     time.sleep(2)

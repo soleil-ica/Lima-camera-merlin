@@ -62,7 +62,7 @@ private:
 //---------------------------
 
 Camera::Camera(std::string hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(npixels), m_nrasters(nrasters),
+  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
   m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
 
 	DEB_CONSTRUCTOR();
@@ -92,6 +92,16 @@ void Camera::init() {
 	m_merlin->connectToServer(m_hostname, m_cmdPort);
 	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_hostname, m_dataPort);
        	m_merlin->initServerDataPort(m_hostname, m_dataPort);
+    getImageX(m_npixels);
+    getImageY(m_nrasters);
+    getExpTime(m_exp_time);
+    getLatTime(m_lat_time);
+    getEnableCounters(m_counter);
+    ImageType type;
+    getImageType(type);
+    setImageType(type);
+    getNbFrames(m_nb_frames);
+    setEnableCounters(m_counter);
 }
 
 void Camera::reset() {
@@ -101,7 +111,14 @@ void Camera::reset() {
 }
 
 void Camera::prepareAcq() {
-	DEB_MEMBER_FUNCT();
+    DEB_MEMBER_FUNCT();
+    ImageType type;
+    getEnableCounters(m_counter);
+	getImageType(type);
+	setImageType(type);
+    setEnableCounters(m_counter);
+    getImageX(m_npixels);
+    getImageY(m_nrasters);
 	Camera::Switch continuous;
 	getContinuousRW(continuous);
 	if (continuous == Camera::ON) {
@@ -125,9 +142,10 @@ void Camera::stopAcq() {
 	AutoMutex aLock(m_cond.mutex());
 	m_wait_flag = true;
 	m_cond.broadcast();
-	stopAcquisition();
+	//	stopAcquisition();
 	if (write(m_pipes[1], "Q", 1) == -1)
 		THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
+	cout << "stop requested " << endl;
 }
 
 void Camera::getStatus(DetectorStatus& status) {
@@ -138,16 +156,17 @@ void Camera::getStatus(DetectorStatus& status) {
 
 bool Camera::readFrame(void *bptr, int frame_nb) {
 	DEB_MEMBER_FUNCT();
-	stringstream cmd;
 	int npoints = m_npixels * m_nrasters;
-        struct timeval tv = {120,0}; // timeout after 2 mins
-	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR1(frame_nb);
-
+	struct timeval tv = { 120, 0 }; // timeout after 2 mins
+	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR4(frame_nb, m_image_type, m_npixels, m_nrasters);
+	cout << frame_nb << " " << m_image_type  << " " << m_npixels << " " << m_nrasters << endl;
 	if (m_merlin->select(m_pipes[0], tv)) {
 		AutoMutex aLock(m_cond.mutex());
 		if (frame_nb == 0) {
 			m_merlin->getHeader(bptr);
 		}
+		int loop = (m_counter == Camera::BOTH) ? 2 : 1;
+		for (int i = 0; i < loop; i++) {
 		m_merlin->getFrameHeader(bptr, npoints);
 		switch (m_image_type) {
 		case Bpp1:
@@ -163,6 +182,7 @@ bool Camera::readFrame(void *bptr, int frame_nb) {
 		default:
 			THROW_HW_ERROR(Error) << "Camera::readFrame(): Wrong ImageType should not happen";
 			break;
+		}
 		}
 		return true;
 	}
@@ -188,6 +208,7 @@ void Camera::AcqThread::threadFunction() {
 		}
 		DEB_TRACE() << "AcqThread Running";
 		m_cam.startAcquisition();
+		cout << "acquisition started" << endl;
 		m_cam.m_thread_running = true;
 		if (m_cam.m_quit)
 			return;
@@ -200,7 +221,7 @@ void Camera::AcqThread::threadFunction() {
 
 			void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
 			if (!m_cam.readFrame(bptr, m_cam.m_acq_frame_nb)) {
-				// stop called ?
+			  m_cam.stopAcquisition();// stop called
 				break;
 			}
 			HwFrameInfoType frame_info;
@@ -217,6 +238,7 @@ void Camera::AcqThread::threadFunction() {
 			DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
 		}
 		aLock.lock();
+		m_cam.m_thread_running = false;
 		m_cam.m_wait_flag = true;
 	}
 }
@@ -258,7 +280,6 @@ void Camera::getImageType(ImageType& type) {
 		THROW_HW_ERROR(Error) << "Depth " << depth << " is not supported";
 		break;
 	}
-	type = m_image_type;
 }
 
 void Camera::setImageType(ImageType type) {
@@ -276,7 +297,6 @@ void Camera::setImageType(ImageType type) {
 		break;
 	case Bpp24:
 		setCounterDepth(Camera::BPP24);
-		setContinuousRW(Camera::OFF);
 		break;
 	default:
 		THROW_HW_ERROR(Error) << "Image type " << type << " is not supported";
@@ -354,10 +374,11 @@ void Camera::getExpTime(double& exp_time) {
 void Camera::setExpTime(double exp_time) {
 	DEB_MEMBER_FUNCT();
 	DEB_TRACE() << "Camera::setExpTime() " << DEB_VAR1(exp_time);
-	float period;
+	float period, acqtime;
 	float millisec = exp_time*1000;
 	getAcquisitionPeriod(period);
-	period -= m_exp_time*1000;
+	getAcquisitionTime(acqtime);
+	period -= acqtime;
 	period += millisec;
 	setAcquisitionTime(millisec);
 	setAcquisitionPeriod(period);
@@ -504,11 +525,6 @@ void Camera::getGain(GainSetting &gain) {
 
 void Camera::setContinuousRW(Switch mode) {
 	DEB_MEMBER_FUNCT();
-	Depth depth;
-	getCounterDepth(depth);
-	if (depth == Camera::BPP24) {
-		THROW_HW_ERROR(Error) << "Cannot set continuous RW with 24bit counter depth";
-	}
 	int value = mode;
 	requestSet(CONTINUOUSRW, value);
 }
@@ -696,24 +712,24 @@ void Camera::getTriggerOutLVDSInvert(TriggerLevel &trigLevel) {
 	trigLevel = static_cast<TriggerLevel>(value);
 }
 
-void Camera::setTriggerOutTTLDelay(long long delay) {
+void Camera::setTriggerInTTLDelay(long long delay) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTTTLDELAY, delay);
+	requestSet(TRIGGERINTTLDELAY, delay);
 }
 
-void Camera::getTriggerOutTTLDelay(long long &delay) {
+void Camera::getTriggerInTTLDelay(long long &delay) {
 	DEB_MEMBER_FUNCT();
-	requestGet(TRIGGEROUTTTLDELAY, delay);
+	requestGet(TRIGGERINTTLDELAY, delay);
 }
 
-void Camera::setTriggerOutLVDSDelay(long long delay) {
+void Camera::setTriggerInLVDSDelay(long long delay) {
 	DEB_MEMBER_FUNCT();
-	requestSet(TRIGGEROUTLVDSDELAY, delay);
+	requestSet(TRIGGERINLVDSDELAY, delay);
 }
 
-void Camera::getTriggerOutLVDSDelay(long long &delay) {
+void Camera::getTriggerInLVDSDelay(long long &delay) {
 	DEB_MEMBER_FUNCT();
-	requestGet(TRIGGEROUTLVDSDELAY, delay);
+	requestGet(TRIGGERINLVDSDELAY, delay);
 }
 
 void Camera::setTriggerUseDelay(Switch mode) {
@@ -827,6 +843,29 @@ void Camera::getDetectorStatus(DetectorStatus &status) {
 	status = static_cast<DetectorStatus>(stat);
 }
 
+void Camera::getImageX(int &imagex) {
+	DEB_MEMBER_FUNCT();
+	requestGet(IMAGEX, imagex);
+}
+
+void Camera::getImageY(int &imagey) {
+	DEB_MEMBER_FUNCT();
+	requestGet(IMAGEY, imagey);
+}
+
+void Camera::setFillMode(FillMode mode) {
+	DEB_MEMBER_FUNCT();
+	int value = mode;
+	requestSet(FILLMODE, value);
+}
+
+void Camera::getFillMode(FillMode &mode) {
+	DEB_MEMBER_FUNCT();
+	int value;
+	requestGet(FILLMODE, value);
+	mode = static_cast<FillMode>(value);
+}
+
 void Camera::requestCmd(ActionCmd actionCmd) {
 	DEB_MEMBER_FUNCT();
 	string reply;
@@ -889,11 +928,15 @@ string Camera::buildCmd(Action type, const string cmd, string value) {
 string Camera::decodeReply(const string cmd, const string reply) {
 	DEB_MEMBER_FUNCT();
 	vector<string> tokens = ::split(reply, ',');
-	int rc;
+	int rc = -1;
 	if (tokens[2].compare(actions[GET]) == 0) {
-		stringstream(tokens[5]) >> rc;
+		if (tokens.size() > 5) {
+			stringstream(tokens[5]) >> rc;
+		}
 	} else {
-		stringstream(tokens[4]) >> rc;
+		if (tokens.size() > 4) {
+			stringstream(tokens[4]) >> rc;
+		}
 	}
 	DEB_TRACE() << DEB_VAR1(rc);
 	switch (rc) {
@@ -902,11 +945,11 @@ string Camera::decodeReply(const string cmd, const string reply) {
 	case Camera::SystemBusy:
 		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): the system is busy";
 	case Camera::WrongCmd:
-		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): action has not been recognised";
+		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): command has not been recognised";
 	case Camera::ParamRange:
-		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): response to wrong request";
+		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): parameter out of range";
 	default:
-		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): unknown error code. Please report";
+		THROW_HW_ERROR(Error) << "MerlinNet::decodeReply(): No error code found. Please report to DLS";
 	}
 	return (tokens[2].compare(actions[GET]) == 0) ? tokens[4] : "";
 }
@@ -957,15 +1000,18 @@ std::map<Camera::ActionCmd, std::string> Camera::actionCmdMap = {
 	{TRIGGERSTOP, "TRIGGERSTOP"},
 	{TRIGGEROUTTTL,"TriggerOutTTL"},
 	{TRIGGEROUTLVDS, "TriggerOutLVDS"},
-    {TRIGGEROUTTTLINVERT,"TriggerOutTTLInvert"},
+	{TRIGGEROUTTTLINVERT,"TriggerOutTTLInvert"},
 	{TRIGGEROUTLVDSINVERT, "TriggerOutLVDSInvert"},
-	{TRIGGEROUTTTLDELAY, "TriggerOutTTLDelay"},
-	{TRIGGEROUTLVDSDELAY, "TriggerOutLVDSDelay"},
+	{TRIGGERINTTLDELAY, "TriggerInTTLDelay"},
+	{TRIGGERINLVDSDELAY, "TriggerInLVDSDelay"},
 	{TRIGGERUSEDELAY, "TriggerUseDelay"},
 	{FILEDIRECTORY, "FILEDIRECTORY"},
 	{FILENAME, "FILENAME"},
 	{FILEENABLE, "FILEENABLE"},
 	{DETECTORSTATUS, "DETECTORSTATUS"},
+	{IMAGEX, "ImageX"},
+	{IMAGEY, "ImageY"},
+	{FILLMODE, "FILLMODE"},
 };
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
@@ -1018,8 +1064,8 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 	static int trigoutLVDS = Camera::LVDS;
 	static int trigTTLlevel = Camera::INVERTED;
 	static int trigLVDSlevel = Camera::NORMAL;
-	static int64_t trigoutTTLdelay = 456789;
-	static int64_t trigoutLVDSdelay = 987654;
+	static int64_t trigInTTLdelay = 456789;
+	static int64_t trigInLVDSdelay = 987654;
 	static bool trigUseDelay = false;
 	static float version = 1.1;
 	static string fileDirectory = "c:\\users\\";
@@ -1134,11 +1180,11 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 		case TRIGGEROUTLVDSINVERT:
 			ss << "," << trigLVDSlevel;
 			break;
-		case TRIGGEROUTTTLDELAY:
-			ss << "," << trigoutTTLdelay;
+		case TRIGGERINTTLDELAY:
+			ss << "," << trigInTTLdelay;
 			break;
-		case TRIGGEROUTLVDSDELAY:
-			ss << "," << trigoutLVDSdelay;
+		case TRIGGERINLVDSDELAY:
+			ss << "," << trigInLVDSdelay;
 			break;
 		case TRIGGERUSEDELAY:
 			ss << "," << trigUseDelay;
@@ -1259,11 +1305,11 @@ void Camera::simulate(Action type, string cmd, string& reply) {
 			stringstream(tokens[4]) >> value;
 			trigLVDSlevel = static_cast<TriggerLevel>(value);
 			break;
-		case TRIGGEROUTTTLDELAY:
-			stringstream(tokens[4]) >> trigoutTTLdelay;
+		case TRIGGERINTTLDELAY:
+			stringstream(tokens[4]) >> trigInTTLdelay;
 			break;
-		case TRIGGEROUTLVDSDELAY:
-			stringstream(tokens[4]) >> trigoutLVDSdelay;
+		case TRIGGERINLVDSDELAY:
+			stringstream(tokens[4]) >> trigInLVDSdelay;
 			break;
 		case TRIGGERUSEDELAY:
 			stringstream(tokens[4]) >> value;
