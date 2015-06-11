@@ -59,7 +59,7 @@ merlintest:		MerlinTest.o ../src/Merlin.o
 
 
 clean:
-	rm -f *.o *.P MerlinTest
+	rm -f *.o *.P merlinTest
 
 %.o : %.cpp
 	$(COMPILE.cpp) -MD $(CXXFLAGS) -o $@ $<

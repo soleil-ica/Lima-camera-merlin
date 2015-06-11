@@ -38,7 +38,7 @@ Interface::Interface(Camera& cam) :
 
 	HwSyncCtrlObj *sync = &m_sync;
 	m_cap_list.push_back(sync);
-
+	/*
 	m_sync.setNbFrames(1);
 	m_sync.setExpTime(1.0);
 	m_sync.setLatTime(0.0);
@@ -51,6 +51,7 @@ Interface::Interface(Camera& cam) :
 	m_bufferCtrlObj->setFrameDim(frame_dim);
 	m_bufferCtrlObj->setNbConcatFrames(1);
 	m_bufferCtrlObj->setNbBuffers(2);
+	*/
 }
 
 Interface::~Interface() {
@@ -90,12 +91,15 @@ void Interface::stopAcq() {
 void Interface::getStatus(StatusType& status) {
 	DEB_MEMBER_FUNCT();
 	status.acq = m_cam.isAcqRunning() ? AcqRunning : AcqReady;
+	cout << "AcqStatus !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << status.acq << endl;
 
 	Camera::DetectorStatus detstat;
 	m_cam.getStatus(detstat);
 	if (detstat == Camera::DetectorStatus::BUSY) {
+	  cout << "DetExposure !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		status.det = DetExposure;
 	} else {
+	  cout << "DetIdle!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		status.det = DetIdle;
 	}
 

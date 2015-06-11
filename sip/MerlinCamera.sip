@@ -51,6 +51,7 @@ public:
 	enum TriggerLevel {NORMAL, INVERTED};
 	enum Threshold {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
 		THRESHOLD5, THRESHOLD6, THRESHOLD7};
+	enum FillMode { NOFILL, INSERTZERO, DISTRIBUTE, INTERPOLATE };
 
 	void init();
 	void reset();
@@ -139,10 +140,10 @@ public:
 	void setTriggerOutTTLInvert(TriggerLevel trigLevel);
 	void getTriggerOutLVDSInvert(TriggerLevel &trigLevel /Out/);
 	void setTriggerOutLVDSInvert(TriggerLevel trigLevel);
-	void getTriggerOutTTLDelay(long long &delay /Out/);
-	void setTriggerOutTTLDelay(long long delay);
-	void getTriggerOutLVDSDelay(long long &delay /Out/);
-	void setTriggerOutLVDSDelay(long long delay);
+	void getTriggerInTTLDelay(long long &delay /Out/);
+	void setTriggerInTTLDelay(long long delay);
+	void getTriggerInLVDSDelay(long long &delay /Out/);
+	void setTriggerInLVDSDelay(long long delay);
 	void getTriggerUseDelay(Switch &mode /Out/);
 	void setTriggerUseDelay(Switch mode);
 	void setTHScanNum(int num);
@@ -160,6 +161,10 @@ public:
 	void setFileEnable(Switch mode);
 	void getFileEnable(Switch &mode /Out/);
 	void getDetectorStatus(DetectorStatus &status /Out/);
+	void getImageX(int &imagex /Out/);
+	void getImageY(int &imagey /Out/);
+	void getFillMode(FillMode &mode /Out/);
+	void setFillMode(FillMode mode);
 };
 
 }; // namespace Merlin

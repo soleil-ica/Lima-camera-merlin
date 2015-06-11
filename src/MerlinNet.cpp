@@ -72,11 +72,11 @@ void MerlinNet::connectToServer(const string hostname, int port) {
 	}
 	if ((host = gethostbyname(hostname.c_str())) == 0) {
 		endhostent();
-		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't get gethostbyname";
+		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't get gethostbyname (errno: " << errno << ")";
 	}
 	if ((m_sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
 		endhostent();
-		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't create socket";
+		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't create socket (errno: " << errno << ")";
 	}
 	m_remote_addr.sin_family = host->h_addrtype;
 	m_remote_addr.sin_port = htons (port);
@@ -85,15 +85,15 @@ void MerlinNet::connectToServer(const string hostname, int port) {
 	endhostent();
 	if (connect(m_sock, (struct sockaddr *) &m_remote_addr, sizeof(struct sockaddr_in)) == -1) {
 		close(m_sock);
-		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Connection to server refused. Is the server running?";
+		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Connection to server refused. Is the server running? (errno: " << errno << ")";
 	}
 	protocol = getprotobyname("tcp");
 	if (protocol == 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't get protocol TCP";
+		THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't get protocol TCP (errno: " << errno << ")";
 	} else {
 		opt = 1;
 		if (setsockopt(m_sock, protocol->p_proto, TCP_NODELAY, (char *) &opt, 4) < 0) {
-			THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't set socket options";
+			THROW_HW_ERROR(Error) << "MerlinNet::connectToServer(): Can't set socket options (errno: " << errno << ")";
 		}
 	}
 	endprotoent();
@@ -118,11 +118,11 @@ void MerlinNet::initServerDataPort(const string hostname, int port) {
 		data_addr.sin_port = htons (port);
 		if ((m_data_sock = socket (AF_INET, SOCK_STREAM, 0)) == -1)
 		{
-		  THROW_HW_ERROR(Error) << "MerlinNet::initServerDataPort() Failed when creating a data socket.";
+		  THROW_HW_ERROR(Error) << "MerlinNet::initServerDataPort() Failed when creating a data socket. (errno: " << errno << ")";
 		}
 		if (connect (m_data_sock, (struct sockaddr *)&data_addr, sizeof (struct sockaddr_in)) == -1)
 		{
-		  THROW_HW_ERROR(Error) << "Failed to connect to data socket";
+		  THROW_HW_ERROR(Error) << "Failed to connect to data socket (errno: " << errno << ")";
 		}
 	}
 }
@@ -135,13 +135,13 @@ void MerlinNet::sendCmd(string cmd, string& reply) {
 	char recvBuf[64];
 
 	if (!m_connected) {
-		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): not connected";
+		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): not connected (errno: " << errno << "";
 	}
 	if (write(m_sock, cmd.c_str(), strlen(cmd.c_str())+1) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): write to socket error";
+		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): write to socket error (errno: " << errno << "";
 	}
 	if ((count = read(m_sock, recvBuf, 64)) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): read from socket error";
+		THROW_HW_ERROR(Error) << "MerlinNet::sendCmd(): read from socket error (errno: " << errno << "";
 	}
 	recvBuf[count] = 0;
 	stringstream ss;
@@ -156,18 +156,18 @@ void MerlinNet::getHeader(void *buffer) {
 	int count, numhdr;
 	stringstream ss;
 
-	DEB_TRACE() << "Waiting to get header information ";
+	cout << "Waiting to get header information " << endl;
 	if ((count = read(m_data_sock, numbuf, 14)) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::getData(): read from socket error";
+		THROW_HW_ERROR(Error) << "MerlinNet::getHeader(): read from socket error (errno: " << errno << ")";
 	}
 	numbuf[14] = 0;
 	ss << (numbuf + 4);
 	ss >> numhdr;
 	if ((count = read(m_data_sock, bptr, numhdr)) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::getData(): read from socket error";
+		THROW_HW_ERROR(Error) << "MerlinNet::getHeader(): read from socket error (errno: " << errno << ")";
 	}
 	bptr[numhdr] = 0;
-	DEB_TRACE() << "Read " << count << " bytes of header ";
+	cout << "Read " << count << " bytes of header " << numbuf << endl;
 	return;
 }
 void MerlinNet::getFrameHeader(void* buffer, int npoints) {
@@ -175,34 +175,52 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 	unsigned char* bptr = static_cast<unsigned char*>(buffer);
 	unsigned char numbuf[15];
 	int count, numhdr, numtotal;
-	stringstream ss;
 
-	DEB_TRACE() << "Waiting to get frame header information";
-	if ((count = read(m_data_sock, numbuf, 14)) <= 0) {
-		THROW_HW_ERROR(Error) << "MerlinNet::getData(): read from socket error";
-	}
-	numbuf[14] = 0;
-	ss << (numbuf + 4);
-	ss >> numtotal;
-	while (1) {
-		if ((numtotal = numtotal - npoints) < 0)
+	cout << "Waiting to get frame header information" << endl;;
+	// kludge alert!
+	// this loop is to catch the spurious acquisition header
+	// which is due to a thread race bug in the Merlin server software.
+	// The real image header is sent in the next tcp packet
+	for (int i = 0; i < 2; i++) {
+		if ((count = read(m_data_sock, numbuf, 14)) <= 0) {
+			THROW_HW_ERROR(Error)
+					<< "MerlinNet::getFrameHeader(): read from socket error (errno: "
+					<< errno << ")";
+		}
+		numbuf[14] = 0;
+		stringstream ss;
+		ss << (numbuf + 4);
+		ss >> numtotal;
+		cout << "Read " << count << " bytes of frame header " << numbuf << endl;
+		if (numtotal == 2049) {
+			// this is the kludge
+		  cout << numtotal << " spurious header bytes to read " << endl;
+		  if ((count = read(m_data_sock, bptr, numtotal)) <= 0) {
+		 	THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
+		  }
+		} else {
+			while (1) {
+				if ((numtotal = numtotal - npoints) < 0)
+					break;
+				numhdr = numtotal;
+			}
 			break;
-		numhdr = numtotal;
+		}
 	}
-	DEB_TRACE() << numhdr << " header bytes to read ";
+	cout << numhdr << " header bytes to read " << endl;
 
 	int numread = 0;
 	count = 1;
 	while (numread < numhdr && count > 0) {
 		DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);
 		if ((count = read(m_data_sock, bptr, numhdr - numread)) <= 0) {
-			THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error";
+			THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
 		}
 		numread += count;
 		bptr += count;
 	};
 	*bptr = 0;
-	DEB_TRACE() << "Read " << numread << " bytes of frame header ";
+	cout << "Read " << numread << " bytes of frame header " << endl;
 	return;
 }
 
@@ -218,16 +236,16 @@ void MerlinNet::getFrameData(T* buffer, int npoints) {
 	stringstream ss;
 	int numBytes = npoints * sizeof(T);
 
-	DEB_TRACE() << numBytes << "bytes of frame data required ";
+	cout << numBytes << "bytes of frame data required " << endl;
 	int numread = 0;
 	while (numread < numBytes && count > 0) {
 		if ((count = read(m_data_sock, bptr, numBytes - numread)) <= 0) {
-			THROW_HW_ERROR(Error) << "MerlinNet::getData(): read from socket error";
+			THROW_HW_ERROR(Error) << "MerlinNet::getFrameData(): read from socket error (errno: " << errno << ")";
 		}
 		numread += count;
 		bptr += count;
 	};
-	DEB_TRACE() << "Read " << numread << " bytes of frame data ";
+	cout << "Read " << numread << " bytes of frame data " << endl;
 	swab(buffer, npoints);
 	return;
 }
@@ -242,7 +260,7 @@ bool MerlinNet::select(int pipefd, timeval& tv) {
 	int nfds = max(m_data_sock, pipefd) + 1;
 	DEB_TRACE() << DEB_VAR3(m_data_sock, pipefd, nfds);
 	if ((status = ::select(nfds, &rfds, NULL, (fd_set*) 0, &tv)) == -1) {
-		THROW_HW_ERROR(Error) << "MerlinNet::select(): pselect system call failed" << errno;
+		THROW_HW_ERROR(Error) << "MerlinNet::select(): select system call failed (errno: " << errno << ")";
 	}
 	DEB_TRACE() << DEB_VAR1(status);
 	DEB_TRACE() << DEB_VAR1(FD_ISSET(m_data_sock, &rfds));
@@ -250,8 +268,11 @@ bool MerlinNet::select(int pipefd, timeval& tv) {
 	if (FD_ISSET(pipefd, &rfds)) {
 		char c;
 		read(pipefd, &c, 1);
+		cout << "caught q" << endl;
 	}
-	return status && FD_ISSET(m_data_sock, &rfds);
+	bool rc = status && FD_ISSET(m_data_sock, &rfds);
+	cout << "return from select is " << rc << endl;
+	return rc;
 }
 
 void MerlinNet::swab(uint8_t* iptr, int npoints) {

@@ -47,7 +47,7 @@ public:
 	void getData(uint8_t* bptr, int npoints);
 	void getData(uint16_t* bptr, int npoints);
 	void getData(uint32_t* bptr, int npoints);
-	bool select(int pipefd, timeval& tv);
+	bool select(int sfd, timeval& tv);
 
 private:
 	mutable Cond m_cond;
