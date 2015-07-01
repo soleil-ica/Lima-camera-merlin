@@ -61,7 +61,7 @@ private:
 // @brief  Ctor
 //---------------------------
 
-Camera::Camera(std::string hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
+Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
   m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
   m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
 
@@ -92,16 +92,19 @@ void Camera::init() {
 	m_merlin->connectToServer(m_hostname, m_cmdPort);
 	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_hostname, m_dataPort);
        	m_merlin->initServerDataPort(m_hostname, m_dataPort);
-    getImageX(m_npixels);
-    getImageY(m_nrasters);
-    getExpTime(m_exp_time);
-    getLatTime(m_lat_time);
-    getEnableCounters(m_counter);
-    ImageType type;
-    getImageType(type);
-    setImageType(type);
-    getNbFrames(m_nb_frames);
-    setEnableCounters(m_counter);
+	// get the initial values set by the Merlin H/W
+	getImageX(m_npixels);
+	getImageY(m_nrasters);
+	getExpTime(m_exp_time);
+	getLatTime(m_lat_time);
+	getEnableCounters(m_counter);
+	getImageType(m_image_type);
+	getNbFrames(m_nb_frames);
+	getFillMode(m_fillMode);
+	getColourMode(m_colourMode);
+	getContinuousRW(m_continuous);
+	DEB_TRACE() << DEB_VAR2(m_npixels, m_nrasters);
+	DEB_TRACE() << DEB_VAR3(m_counter, m_image_type, m_fillMode);
 }
 
 void Camera::reset() {
@@ -112,18 +115,9 @@ void Camera::reset() {
 
 void Camera::prepareAcq() {
     DEB_MEMBER_FUNCT();
-    ImageType type;
-    getEnableCounters(m_counter);
-	getImageType(type);
-	setImageType(type);
-    setEnableCounters(m_counter);
-    getImageX(m_npixels);
-    getImageY(m_nrasters);
-	Camera::Switch continuous;
-	getContinuousRW(continuous);
-	if (continuous == Camera::ON) {
-		setFramesPerTrigger(m_nb_frames);
-	}
+    if (m_continuous == Camera::ON) {
+      setFramesPerTrigger(m_nb_frames);
+    }
 }
 
 void Camera::startAcq() {
@@ -142,10 +136,9 @@ void Camera::stopAcq() {
 	AutoMutex aLock(m_cond.mutex());
 	m_wait_flag = true;
 	m_cond.broadcast();
-	//	stopAcquisition();
 	if (write(m_pipes[1], "Q", 1) == -1)
 		THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
-	cout << "stop requested " << endl;
+	DEB_TRACE() << "stop requested ";
 }
 
 void Camera::getStatus(DetectorStatus& status) {
@@ -157,32 +150,44 @@ void Camera::getStatus(DetectorStatus& status) {
 bool Camera::readFrame(void *bptr, int frame_nb) {
 	DEB_MEMBER_FUNCT();
 	int npoints = m_npixels * m_nrasters;
+	uint16_t* sptr;
+	uint8_t* cptr;
+	uint8_t* hptr;
+	uint32_t* iptr;
 	struct timeval tv = { 120, 0 }; // timeout after 2 mins
-	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR4(frame_nb, m_image_type, m_npixels, m_nrasters);
-	cout << frame_nb << " " << m_image_type  << " " << m_npixels << " " << m_nrasters << endl;
+	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR5(frame_nb, m_image_type, m_npixels, m_nrasters, m_counter);
 	if (m_merlin->select(m_pipes[0], tv)) {
 		AutoMutex aLock(m_cond.mutex());
 		if (frame_nb == 0) {
 			m_merlin->getHeader(bptr);
 		}
 		int loop = (m_counter == Camera::BOTH) ? 2 : 1;
-		for (int i = 0; i < loop; i++) {
-		m_merlin->getFrameHeader(bptr, npoints);
-		switch (m_image_type) {
-		case Bpp1:
-		case Bpp6:
-			m_merlin->getData(reinterpret_cast<uint8_t*>(bptr), npoints);
-			break;
-		case Bpp12:
-			m_merlin->getData(reinterpret_cast<uint16_t*>(bptr), npoints);
-			break;
-		case Bpp24:
-			m_merlin->getData(reinterpret_cast<uint32_t*>(bptr), npoints);
-			break;
-		default:
-			THROW_HW_ERROR(Error) << "Camera::readFrame(): Wrong ImageType should not happen";
-			break;
-		}
+		int mode = (m_colourMode == Camera::Colour) ? 4 : 1;
+		for (int i = 0; i < loop*mode; i++) {
+		        hptr = reinterpret_cast<uint8_t*>(bptr);
+			hptr += npoints*i;
+			m_merlin->getFrameHeader(hptr, npoints);
+			switch (m_image_type) {
+			case Bpp1:
+			case Bpp6:
+				cptr = reinterpret_cast<uint8_t*>(bptr);
+				cptr += npoints*i;
+				m_merlin->getData(cptr, npoints);
+				break;
+			case Bpp12:
+				sptr = reinterpret_cast<uint16_t*>(bptr);
+				sptr += npoints*i;
+				m_merlin->getData(sptr, npoints);
+				break;
+			case Bpp24:
+				iptr = reinterpret_cast<uint32_t*>(bptr);
+				iptr += npoints*i;
+				m_merlin->getData(iptr, npoints);
+				break;
+			default:
+				THROW_HW_ERROR(Error) << "Camera::readFrame(): Wrong ImageType should not happen";
+				break;
+			}
 		}
 		return true;
 	}
@@ -208,7 +213,6 @@ void Camera::AcqThread::threadFunction() {
 		}
 		DEB_TRACE() << "AcqThread Running";
 		m_cam.startAcquisition();
-		cout << "acquisition started" << endl;
 		m_cam.m_thread_running = true;
 		if (m_cam.m_quit)
 			return;
@@ -315,13 +319,17 @@ void Camera::getDetectorModel(std::string& model) {
 	stringstream ss;
 	float version;
 	getSoftwareVersion(version);
-	ss << "Medipix3RX Quad Readout: Software version "  << version;
+	ss << "Medipix3RX Quad Readout: Software version "  << setprecision(3) << version;
 	model = ss.str();
 }
 
 void Camera::getDetectorImageSize(Size& size) {
 	DEB_MEMBER_FUNCT();
-	size = Size(m_npixels, m_nrasters);
+	getEnableCounters(m_counter);
+	int factor = (m_counter == Camera::BOTH) ? 2 : 1;
+	int mode = (m_colourMode == Camera::Colour) ? 4 : 1;
+	size = Size(m_npixels, m_nrasters * factor * mode);
+	DEB_TRACE() << DEB_VAR5(m_npixels, m_nrasters, factor, mode, size);
 }
 
 void Camera::getPixelSize(double& sizex, double& sizey) {
@@ -488,6 +496,13 @@ void Camera::setColourMode(ColourMode mode) {
 	DEB_MEMBER_FUNCT();
 	bool value = mode;
 	requestSet(COLOURMODE, value);
+	m_colourMode = mode;
+	getImageX(m_npixels);
+	getImageY(m_nrasters);
+	getEnableCounters(m_counter);
+	Size size;
+	getDetectorImageSize(size);
+	maxImageSizeChanged(size, m_image_type);
 }
 
 void Camera::getColourMode(ColourMode &mode) {
@@ -527,6 +542,7 @@ void Camera::setContinuousRW(Switch mode) {
 	DEB_MEMBER_FUNCT();
 	int value = mode;
 	requestSet(CONTINUOUSRW, value);
+	m_continuous = mode;
 }
 
 void Camera::getContinuousRW(Switch &mode) {
@@ -540,7 +556,10 @@ void Camera::setEnableCounters(Counter counter) {
 	DEB_MEMBER_FUNCT();
 	int value = counter;
 	requestSet(ENABLECOUNTER1, value);
-
+	m_counter = counter;
+	Size size;
+	getDetectorImageSize(size);
+	maxImageSizeChanged(size, m_image_type);
 }
 
 void Camera::getEnableCounters(Counter &counter) {
@@ -577,6 +596,11 @@ void Camera::setCounterDepth(Depth depth) {
 	DEB_MEMBER_FUNCT();
 	int value = depth;
 	requestSet(COUNTERDEPTH, value);
+	getImageType(m_image_type);
+	getEnableCounters(m_counter);
+	Size size;
+	getDetectorImageSize(size);
+	maxImageSizeChanged(size, m_image_type);
 }
 
 void Camera::getCounterDepth(Depth &depth) {
@@ -857,6 +881,12 @@ void Camera::setFillMode(FillMode mode) {
 	DEB_MEMBER_FUNCT();
 	int value = mode;
 	requestSet(FILLMODE, value);
+	m_fillMode = mode;
+	getImageX(m_npixels);
+	getImageY(m_nrasters);
+	Size size;
+	getDetectorImageSize(size);
+	maxImageSizeChanged(size, m_image_type);
 }
 
 void Camera::getFillMode(FillMode &mode) {
