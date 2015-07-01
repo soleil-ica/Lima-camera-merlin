@@ -52,9 +52,10 @@ int main () {
 
 	try {
 
-		m_camera = new Camera(hostname, port, dataPort, nx, ny, nchips, simulate);
-		m_interface = new Interface(*m_camera);
-		m_control = new CtControl(m_interface);
+	  m_camera = new Camera(hostname, port, dataPort, nx, ny, nchips, simulate);
+	  m_interface = new Interface(*m_camera);
+	  m_control = new CtControl(m_interface);
+	  CtAcquisition* ct_acq = m_control->acquisition();
 
 		string type;
 		m_camera->getDetectorType(type);

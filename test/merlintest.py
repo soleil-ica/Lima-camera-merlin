@@ -5,7 +5,7 @@ import time
 dev=PyTango.DeviceProxy('merlin/tango/1')
 print "Software  version     :", dev.read_attribute("softwareversion").value
 
-nframes = 5
+nframes = 10 
 exp_time = 0.1
 
 lima=PyTango.DeviceProxy('limaccd/tango/3')
@@ -18,13 +18,15 @@ lima.write_attribute("saving_prefix","merlin_")
 lima.write_attribute("saving_mode","AUTO_FRAME")
 lima.write_attribute("saving_frames_per_file", nframes)
 
+#dev.write_attribute("counter","counter0");
+dev.write_attribute("counter","both");
 # do acquisition
 lima.write_attribute("acq_nb_frames",nframes)
 lima.write_attribute("latency_time",0.01)
 lima.write_attribute("acq_expo_time",exp_time)
 lima.write_attribute("acq_trigger_mode", "INTERNAL_TRIGGER")
 
-for i in range(100):
+for i in range(10):
     lima.command_inout("prepareAcq")
     lima.command_inout("startAcq")
 

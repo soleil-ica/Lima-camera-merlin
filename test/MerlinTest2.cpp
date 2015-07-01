@@ -60,8 +60,10 @@ int main () {
 		cout << "Detector Status: " << status << endl;
 
 		//reset parameters for acquisition
-		int nframes = 100;
+		int nframes = 25;
 		double time = 0.1;
+		//		m_camera->setEnableCounters(Camera::COUNTER0);
+		m_camera->setEnableCounters(Camera::BOTH);
 		m_camera->setFramesPerTrigger(1);
 		m_camera->setTriggerStartType(Camera::INTERNAL);
 		m_camera->setTriggerStopType(Camera::INTERNAL);

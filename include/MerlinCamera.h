@@ -47,12 +47,12 @@ class BufferCtrlObj;
  * \class Camera
  * \brief object controlling the Merlin camera
  *******************************************************************/
-class Camera {
+class Camera : public HwMaxImageSizeCallbackGen {
 DEB_CLASS_NAMESPC(DebModCamera, "Camera", "Merlin");
 
 public:
 
-	Camera(std::string hostname, int cmdPort = 6341, int dataPort = 6342,
+	Camera(std::string& hostname, int cmdPort = 6341, int dataPort = 6342,
 	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
 	~Camera();
 	
@@ -275,6 +275,9 @@ private:
 	int m_pipes[2];
 	mutable Cond m_cond;
 	Counter m_counter;
+	FillMode m_fillMode;
+	ColourMode m_colourMode;
+	Switch m_continuous;
 
 
 	// Buffer control object

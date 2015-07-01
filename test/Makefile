@@ -21,21 +21,21 @@
 ############################################################################
 include ../../../config.inc
 
-SRCS = MerlinTest.cpp 
+SRCS = MerlinTest.cpp MerlinTest2.cpp 
 
 
 LDFLAGS = -pthread -L../../../build  -L../../../third-party/Processlib/build 
 LDLIBS = -llimacore  -lprocesslib 
 
 CXXFLAGS = -I../include \
-	       -I../../../hardware/include \
-	       -I../../../common/include \
+	   -I../../../hardware/include \
+	   -I../../../common/include \
            -I../../../control/include \
            -I../../../control/software_operation/include \
-	       -I../../../third-party/Processlib/core/include \
-	       -I../../../third-party/Processlib/tasks/include \
-	       -I../../../third-party/Sps/Include \
-	        -Wall -pthread -g
+	   -I../../../third-party/Processlib/core/include \
+	   -I../../../third-party/Processlib/tasks/include \
+	   -I../../../third-party/Sps/Include \
+	   -Wall -pthread -g
 
 ifneq ($(COMPILE_CONFIG),0)
 CXXFLAGS += -DWITH_CONFIG -I../../third-party/libconfig/lib
@@ -50,16 +50,18 @@ endif
 HDF5_LDFLAGS := -L../../../third-party/hdf5/lib -L../../../install/Lima/lib
 HDF5_LDLIBS := -lhdf5_cpp -lhdf5
 
-test-progs = merlintest
+test-progs = merlintest merlintest2
 
 all: 	$(test-progs)
 
 merlintest:		MerlinTest.o ../src/Merlin.o
 	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS)
 
+merlintest2:		MerlinTest2.o ../src/Merlin.o
+	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS)
 
 clean:
-	rm -f *.o *.P merlinTest
+	rm -f *.o *.P merlintest merlintest2
 
 %.o : %.cpp
 	$(COMPILE.cpp) -MD $(CXXFLAGS) -o $@ $<
