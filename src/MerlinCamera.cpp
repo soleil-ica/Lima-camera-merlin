@@ -1070,6 +1070,16 @@ std::vector<std::string> split(const std::string &s, char delim) {
     return elems;
 }
 
+const std::string convert_2_string(const Camera::Counter& counter) {
+	const char* name = "Unknown";
+	switch (counter) {
+	case Camera::COUNTER0: name = "Counter0";	break;
+	case Camera::COUNTER1: name = "Counter1"; break;
+	case Camera::BOTH: name = "Both";	break;
+	}
+	return name;
+}
+
 // ----------------------- Simulate code now --------------------
 
 void Camera::simulate(Action type, string cmd, string& reply) {
