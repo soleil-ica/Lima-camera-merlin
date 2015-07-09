@@ -59,7 +59,7 @@ public:
 	enum DetectorStatus {
 	  IDLE,     ///< Detector idle
 	  BUSY,     ///< Detector Busy
-	  STANDBY,  ///< Detecotr in standby
+	  STANDBY,  ///< Detector in standby
 	};
 	enum ColourMode {Monochrome, Colour};
 	enum Switch {OFF, ON};
@@ -328,14 +328,17 @@ inline ostream& operator <<(ostream& os, Camera::GainSetting &gain) {
 	return os << name;
 }
 
-inline ostream& operator <<(ostream& os, Camera::Counter &counter) {
+const std::string convert_2_string(const Camera::Counter& counter) {
 	const char* name = "Unknown";
 	switch (counter) {
 	case Camera::COUNTER0: name = "Counter0";	break;
 	case Camera::COUNTER1: name = "Counter1"; break;
 	case Camera::BOTH: name = "Both";	break;
 	}
-	return os << name;
+	return name;
+}
+inline ostream& operator <<(ostream& os, Camera::Counter &counter) {
+	return os << convert_2_string(counter);
 }
 
 inline std::ostream& operator <<(std::ostream& os, Camera::Trigger const &trigger) {

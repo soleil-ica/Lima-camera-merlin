@@ -114,10 +114,21 @@ void Camera::reset() {
 }
 
 void Camera::prepareAcq() {
-    DEB_MEMBER_FUNCT();
-    if (m_continuous == Camera::ON) {
-      setFramesPerTrigger(m_nb_frames);
-    }
+	DEB_MEMBER_FUNCT();
+	if (m_continuous == Camera::ON) {
+		setFramesPerTrigger(m_nb_frames);
+	}
+	DetectorStatus status;
+	for (int i = 0; i < 10; i++) {
+		getStatus(status);
+		if (status == IDLE) {
+			DEB_TRACE() << DEB_VAR2(m_npixels, m_nrasters);
+			DEB_TRACE() << DEB_VAR4(m_counter, m_image_type, m_colourMode, m_fillMode);
+			return;
+		}
+		usleep(100*1000);
+	}
+	THROW_HW_ERROR(Error) << "Camera::prepareAcq(): Detector is continuously busy";
 }
 
 void Camera::startAcq() {
