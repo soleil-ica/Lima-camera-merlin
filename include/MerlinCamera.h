@@ -328,7 +328,7 @@ inline ostream& operator <<(ostream& os, Camera::GainSetting &gain) {
 	return os << name;
 }
 
-const std::string convert_2_string(const Camera::Counter& counter) {
+inline const std::string convert_2_string(const Camera::Counter& counter) {
 	const char* name = "Unknown";
 	switch (counter) {
 	case Camera::COUNTER0: name = "Counter0";	break;
