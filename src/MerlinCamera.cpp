@@ -71,7 +71,7 @@ Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, in
 	//	DebParams::setTypeFlags(DebParams::AllFlags);
 	//	DebParams::setFormatFlags(DebParams::AllFlags);
 	if(pipe(m_pipes))
-	  THROW_HW_ERROR(Error) << "Can't open pipe";
+		THROW_HW_ERROR(Error) << "Can't open pipe";
 	m_acq_thread = new AcqThread(*this);
 	m_acq_thread->start();
 	if (!m_simulated) {
@@ -91,7 +91,7 @@ void Camera::init() {
 	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_hostname, m_cmdPort);
 	m_merlin->connectToServer(m_hostname, m_cmdPort);
 	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_hostname, m_dataPort);
-       	m_merlin->initServerDataPort(m_hostname, m_dataPort);
+	m_merlin->initServerDataPort(m_hostname, m_dataPort);
 	// get the initial values set by the Merlin H/W
 	getImageX(m_npixels);
 	getImageY(m_nrasters);
@@ -119,14 +119,12 @@ void Camera::prepareAcq() {
 		setFramesPerTrigger(m_nb_frames);
 	}
 	DetectorStatus status;
-	for (int i = 0; i < 10; i++) {
+	for (int i = 0; i < 50000; i++) {
 		getStatus(status);
 		if (status == IDLE) {
-			DEB_TRACE() << DEB_VAR2(m_npixels, m_nrasters);
-			DEB_TRACE() << DEB_VAR4(m_counter, m_image_type, m_colourMode, m_fillMode);
 			return;
 		}
-		usleep(100*1000);
+		usleep(500000);
 	}
 	THROW_HW_ERROR(Error) << "Camera::prepareAcq(): Detector is continuously busy";
 }
@@ -154,28 +152,35 @@ void Camera::stopAcq() {
 
 void Camera::getStatus(DetectorStatus& status) {
 	DEB_MEMBER_FUNCT();
-	AutoMutex lock(m_cond.mutex());
+	//	AutoMutex lock(m_cond.mutex());
 	getDetectorStatus(status);
 }
 
-bool Camera::readFrame(void *bptr, int frame_nb) {
+int Camera::readFrame(void *bptr, int frame_nb, double timeout_secs) {
 	DEB_MEMBER_FUNCT();
 	int npoints = m_npixels * m_nrasters;
 	uint16_t* sptr;
 	uint8_t* cptr;
 	uint8_t* hptr;
 	uint32_t* iptr;
-	struct timeval tv = { 120, 0 }; // timeout after 2 mins
+	int loop, mode;
+	double seconds;
+	double fractional = modf(timeout_secs, &seconds);
+	int usecs = int(fractional * 1000000);
+	struct timeval tv = { int(seconds), usecs };
 	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR5(frame_nb, m_image_type, m_npixels, m_nrasters, m_counter);
-	if (m_merlin->select(m_pipes[0], tv)) {
-		AutoMutex aLock(m_cond.mutex());
+	int selectStatus = m_merlin->select(m_pipes[0], tv);
+	AutoMutex aLock(m_cond.mutex());
+	switch (selectStatus)
+	{
+	case MerlinNet::PROCEED:
 		if (frame_nb == 0) {
 			m_merlin->getHeader(bptr);
 		}
-		int loop = (m_counter == Camera::BOTH) ? 2 : 1;
-		int mode = (m_colourMode == Camera::Colour) ? 4 : 1;
+		loop = (m_counter == Camera::BOTH) ? 2 : 1;
+		mode = (m_colourMode == Camera::Colour) ? 4 : 1;
 		for (int i = 0; i < loop*mode; i++) {
-		        hptr = reinterpret_cast<uint8_t*>(bptr);
+			hptr = reinterpret_cast<uint8_t*>(bptr);
 			hptr += npoints*i;
 			m_merlin->getFrameHeader(hptr, npoints);
 			switch (m_image_type) {
@@ -200,9 +205,14 @@ bool Camera::readFrame(void *bptr, int frame_nb) {
 				break;
 			}
 		}
-		return true;
+		return Camera::READ_OK;
+	case MerlinNet::TIMEOUT:
+		return Camera::STOPPED_AND_TIMEOUT;
+	case MerlinNet::QUIT:
+		return Camera::STOP_ISSUED;
+	case MerlinNet::ABORT:
+		return Camera::ABORT_ISSUED;
 	}
-	return false;
 }
 
 int Camera::getNbHwAcquiredFrames() {
@@ -217,41 +227,58 @@ void Camera::AcqThread::threadFunction() {
 
 	while (!m_cam.m_quit) {
 		while (m_cam.m_wait_flag && !m_cam.m_quit) {
-			DEB_TRACE() << "Wait";
+			DEB_TRACE() << "Wait...............";
 			m_cam.m_thread_running = false;
 			m_cam.m_cond.broadcast();
+			aLock.unlock();
 			m_cam.m_cond.wait();
 		}
+		if (m_cam.m_quit)
+			return;
 		DEB_TRACE() << "AcqThread Running";
 		m_cam.startAcquisition();
 		m_cam.m_thread_running = true;
-		if (m_cam.m_quit)
-			return;
 
 		m_cam.m_cond.broadcast();
 		aLock.unlock();
-
+		double timeout = fmax(120.0, m_cam.m_exp_time*2.0);
 		bool continueFlag = true;
 		while (continueFlag && (!m_cam.m_nb_frames || m_cam.m_acq_frame_nb < m_cam.m_nb_frames)) {
 
+			DEB_TRACE() << "before getFrameBufferptr";
 			void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
-			if (!m_cam.readFrame(bptr, m_cam.m_acq_frame_nb)) {
-			  m_cam.stopAcquisition();// stop called
-				break;
-			}
 			HwFrameInfoType frame_info;
-			frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
-			continueFlag = buffer_mgr.newFrameReady(frame_info);
-			DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
-			// problem saving ?
-			if (!continueFlag) {
+			int rc = m_cam.readFrame(bptr, m_cam.m_acq_frame_nb, timeout);
+			switch (rc) {
+			case Camera::STOP_ISSUED:
+				m_cam.stopAcquisition();
+				timeout = 0.25;
+				DEB_TRACE() << "Stop called, timeout modified to 0.25 secs";
 				break;
+			case Camera::ABORT_ISSUED:
+				m_cam.abort();
+				DEB_TRACE() << "Abort called";
+			case Camera::STOPPED_AND_TIMEOUT:
+				continueFlag = false;
+				DEB_TRACE() << "Stopped with read timeout";
+				break;
+			case Camera::READ_OK:
+			  //				HwFrameInfoType frame_info;
+				frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
+				if (!(continueFlag = buffer_mgr.newFrameReady(frame_info))) {
+					break; // Problem with the saving
+				}
+				DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
+				aLock.lock();
+				++m_cam.m_acq_frame_nb;
+				aLock.unlock();
+				DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
+				break;
+			default:
+			  DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
 			}
-			aLock.lock();
-			++m_cam.m_acq_frame_nb;
-			aLock.unlock();
-			DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
 		}
+		DEB_TRACE() << " AcqThread::threadfunction() Setting thread running flag to false";
 		aLock.lock();
 		m_cam.m_thread_running = false;
 		m_cam.m_wait_flag = true;
@@ -459,7 +486,9 @@ void Camera::getNbFrames(int& nb_frames) {
 }
 
 bool Camera::isAcqRunning() const {
-	AutoMutex aLock(m_cond.mutex());
+	DEB_MEMBER_FUNCT();
+	//	AutoMutex aLock(m_cond.mutex());
+	DEB_TRACE() <<  "isAcqRunning -" << DEB_VAR1(m_thread_running) << "---------------------------";
 	return m_thread_running;
 }
 
@@ -875,6 +904,7 @@ void Camera::getDetectorStatus(DetectorStatus &status) {
 	DEB_MEMBER_FUNCT();
 	int stat;
 	requestGet(DETECTORSTATUS, stat);
+	DEB_TRACE() << "Detector status returned: " << stat;
 	status = static_cast<DetectorStatus>(stat);
 }
 
@@ -1056,18 +1086,18 @@ std::map<Camera::ActionCmd, std::string> Camera::actionCmdMap = {
 };
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
-    std::stringstream ss(s);
-    std::string item;
-    while (std::getline(ss, item, delim)) {
-        elems.push_back(item);
-    }
-    return elems;
+	std::stringstream ss(s);
+	std::string item;
+	while (std::getline(ss, item, delim)) {
+		elems.push_back(item);
+	}
+	return elems;
 }
 
 std::vector<std::string> split(const std::string &s, char delim) {
-    std::vector<std::string> elems;
-    split(s, delim, elems);
-    return elems;
+	std::vector < std::string > elems;
+	split(s, delim, elems);
+	return elems;
 }
 
 const std::string convert_2_string(const Camera::Counter& counter) {

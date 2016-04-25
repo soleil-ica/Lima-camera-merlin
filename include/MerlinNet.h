@@ -38,6 +38,8 @@ public:
 	MerlinNet();
 	~MerlinNet();
 
+	enum SelectStatus {PROCEED, TIMEOUT, QUIT, ABORT};
+
 	void sendCmd(string cmd, string& value);
 	void connectToServer (const string hostname, int port);
 	void disconnectFromServer();
@@ -47,7 +49,7 @@ public:
 	void getData(uint8_t* bptr, int npoints);
 	void getData(uint16_t* bptr, int npoints);
 	void getData(uint32_t* bptr, int npoints);
-	bool select(int sfd, timeval& tv);
+	int select(int sfd, timeval& tv);
 
 private:
 	mutable Cond m_cond;
