@@ -155,19 +155,30 @@ void MerlinNet::getHeader(void *buffer) {
 	unsigned char* bptr = static_cast<unsigned char*>(buffer);
 	unsigned char numbuf[15];
 	int count, numhdr;
-	stringstream ss;
+	stringstream ss, ss2;
 
-	DEB_TRACE() << "Waiting to get header information ";
+	DEB_TRACE() << "Waiting to get header information";
 	if ((count = read(m_data_sock, numbuf, 14)) <= 0) {
 		THROW_HW_ERROR(Error) << "MerlinNet::getHeader(): read from socket error (errno: " << errno << ")";
 	}
 	numbuf[14] = 0;
+	ss2 << numbuf;
+	DEB_TRACE() << "Read " << count << " bytes of header " << ss2.str();
 	ss << (numbuf + 4);
 	ss >> numhdr;
+	DEB_TRACE() << numhdr << " bytes of header required ";
 	if ((count = read(m_data_sock, bptr, numhdr)) <= 0) {
 		THROW_HW_ERROR(Error) << "MerlinNet::getHeader(): read from socket error (errno: " << errno << ")";
 	}
-	bptr[numhdr] = 0;
+	if (count < numhdr) {
+	  DEB_TRACE() << "only read " << count << " bytes " << numhdr << " were required";
+	  int nc;
+	  if ((nc = read(m_data_sock, bptr+count, numhdr-count)) <= 0) {
+		THROW_HW_ERROR(Error) << "MerlinNet::getHeader(): read from socket error (errno: " << errno << ")";
+	  }
+	  count += nc;
+	}
+	bptr[count] = 0;
 	DEB_TRACE() << "Read " << count << " bytes of header " << numbuf;
 	return;
 }
@@ -177,7 +188,7 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 	unsigned char numbuf[15];
 	int count, numhdr, numtotal;
 
-	DEB_TRACE() << "Waiting to get frame header information";;
+	DEB_TRACE() << "Waiting to get frame header information";
 	// kludge alert!
 	// this loop is to catch the spurious acquisition header
 	// which is due to a thread race bug in the Merlin server software.
@@ -189,10 +200,17 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 					<< errno << ")";
 		}
 		numbuf[14] = 0;
-		stringstream ss;
+		stringstream ss, ss2;
 		ss << (numbuf + 4);
 		ss >> numtotal;
-		DEB_TRACE() << "Read " << count << " bytes of frame header " << numbuf;
+		ss2 << numbuf;
+		DEB_TRACE() << "Read " << count << " bytes of frame header " << ss2.str();
+		if (ss2.str().find("MPX") != 0) {
+		 	THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): Invalid frame header, does not start with MPX";
+		  }
+		if (numtotal <= 0) {
+		 	THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): Invalid frame header,requesting <= 0 bytes";
+		  }
 		if (numtotal == 2049) {
 			// this is the kludge
 		  DEB_TRACE() << numtotal << " spurious header bytes to read ";
@@ -213,7 +231,7 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 	int numread = 0;
 	count = 1;
 	while (numread < numhdr && count > 0) {
-		DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);
+	  DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);;
 		if ((count = read(m_data_sock, bptr, numhdr - numread)) <= 0) {
 			THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
 		}
@@ -251,7 +269,7 @@ void MerlinNet::getFrameData(T* buffer, int npoints) {
 	return;
 }
 
-bool MerlinNet::select(int pipefd, timeval& tv) {
+int MerlinNet::select(int pipefd, timeval& tv) {
 	DEB_MEMBER_FUNCT();
 	int status;
 	fd_set rfds;
@@ -269,11 +287,20 @@ bool MerlinNet::select(int pipefd, timeval& tv) {
 	if (FD_ISSET(pipefd, &rfds)) {
 		char c;
 		read(pipefd, &c, 1);
-		DEB_TRACE() << "select caught q";
+		if (c == 'Q') {
+			DEB_TRACE() << "Stop acquisition called";
+			return MerlinNet::QUIT;
+		} else {
+			DEB_TRACE() << "Abort called ";
+			return MerlinNet::ABORT;
+		}
 	}
-	bool rc = status && FD_ISSET(m_data_sock, &rfds);
-	DEB_TRACE() << "return from select is " << rc;
-	return rc;
+	if (FD_ISSET(m_data_sock, &rfds)) {
+		DEB_TRACE() << "Proceed with the read, data in socket";
+		return MerlinNet::PROCEED;
+	}
+	DEB_TRACE() << "Select() timed out";
+	return MerlinNet::TIMEOUT;
 }
 
 void MerlinNet::swab(uint8_t* iptr, int npoints) {

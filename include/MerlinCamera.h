@@ -243,9 +243,10 @@ private:
 		IMAGEY,
 		FILLMODE,
 	};
+	enum ReadFrameStatus {READ_OK, STOP_ISSUED, ABORT_ISSUED, STOPPED_AND_TIMEOUT};
 
 	enum errorCode {
-		CmdOk,           ///< Command understood
+		CmdOk,        ///< Command understood
 		SystemBusy,   ///< The system is busy
 		WrongCmd,     ///< The command has not been recognised
 		ParamRange,   ///< Parameter is out of range
@@ -295,7 +296,7 @@ private:
 
 	static std::map<ActionCmd, std::string> actionCmdMap;
 
-	bool readFrame(void *bptr, int frame_nb);
+	int readFrame(void *bptr, int frame_nb, double timeout_secs);
 };
 
 
@@ -323,20 +324,12 @@ inline ostream& operator <<(ostream& os, Camera::GainSetting &gain) {
 	case Camera::SLGM: name = "SuperLowGainMode";	break;
 	case Camera::LGM: name = "LowGainMode"; break;
 	case Camera::HGM: name = "HighGainMode";	break;
-	case Camera::SHGM: name = "SuoerHighGainMode";	break;
+	case Camera::SHGM: name = "SuperHighGainMode";	break;
 	}
 	return os << name;
 }
 
-inline const std::string convert_2_string(const Camera::Counter& counter) {
-	const char* name = "Unknown";
-	switch (counter) {
-	case Camera::COUNTER0: name = "Counter0";	break;
-	case Camera::COUNTER1: name = "Counter1"; break;
-	case Camera::BOTH: name = "Both";	break;
-	}
-	return name;
-}
+const std::string convert_2_string(const Camera::Counter& counter);
 inline ostream& operator <<(ostream& os, Camera::Counter &counter) {
 	return os << convert_2_string(counter);
 }
