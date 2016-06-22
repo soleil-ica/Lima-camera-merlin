@@ -39,10 +39,8 @@ for i in range(100):
     lima.command_inout("stopAcq")       
     print "Stopped in run ", i, " after ", time.time()-start, "secs"
 
-    while lima.read_attribute("acq_status").value == "Running"  :
-        print "still waiting to stop", dev.read_attribute("acqRunning").value
+    while (Core.AcqReady != lima.getStatus().AcquisitionStatus):
         time.sleep(.1)
-
     print "Completely stopped run ", i, " after ", time.time()-start, "secs"
 
 print "Done"
