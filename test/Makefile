@@ -21,7 +21,7 @@
 ############################################################################
 include ../../../config.inc
 
-SRCS = MerlinTest.cpp MerlinTest2.cpp 
+SRCS = MerlinTest.cpp MerlinTest2.cpp MerlinTest3.cpp
 
 
 LDFLAGS = -pthread -L../../../build  -L../../../third-party/Processlib/build 
@@ -50,7 +50,7 @@ endif
 HDF5_LDFLAGS := -L../../../third-party/hdf5/lib -L../../../install/Lima/lib
 HDF5_LDLIBS := -lhdf5_cpp -lhdf5
 
-test-progs = merlintest merlintest2
+test-progs = merlintest merlintest2 merlintest3
 
 all: 	$(test-progs)
 
@@ -60,8 +60,11 @@ merlintest:		MerlinTest.o ../src/Merlin.o
 merlintest2:		MerlinTest2.o ../src/Merlin.o
 	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS)
 
+merlintest3:		MerlinTest3.o ../src/Merlin.o
+	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS)
+
 clean:
-	rm -f *.o *.P merlintest merlintest2
+	rm -f *.o *.P merlintest merlintest2 merlintest3
 
 %.o : %.cpp
 	$(COMPILE.cpp) -MD $(CXXFLAGS) -o $@ $<
