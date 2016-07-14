@@ -82,17 +82,17 @@ void Interface::getStatus(StatusType& status) {
 		if (detstat == Camera::DetectorStatus::BUSY) {
 			status.det = DetExposure;
 			status.acq = AcqRunning;
-		} else {// det status is idle
-			status.det = DetReadout;
+		} else {
+			status.det = DetIdle;
 			status.acq = AcqRunning;
 		}
-	} else {                    // acquisition thread not running
+	} else {  // acquisition thread not running
 		if (detstat == Camera::DetectorStatus::IDLE) {
-				status.det = DetIdle;
-				status.acq = AcqReady;
-		} else { // shouldn't get this state
-				status.det = DetFault;
-				status.acq = AcqFault;
+			status.det = DetIdle;
+			status.acq = AcqReady;
+		} else {
+			status.det = DetReadout;
+			status.acq = AcqRunning;
 		}
 	}
 	DEB_TRACE() << "Status " << DEB_VAR1(status);
