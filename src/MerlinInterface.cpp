@@ -76,20 +76,26 @@ void Interface::stopAcq() {
 
 void Interface::getStatus(StatusType& status) {
 	DEB_MEMBER_FUNCT();
-	status.acq = m_cam.isAcqRunning() ? AcqRunning : AcqReady;
-	DEB_TRACE() << "AcqStatus " << status.acq;
-
 	Camera::DetectorStatus detstat;
 	m_cam.getStatus(detstat);
-	if (detstat == Camera::DetectorStatus::BUSY) {
-	  DEB_TRACE() << "DetExposure";
-		status.det = DetExposure;
-	} else {
-	  DEB_TRACE() << "DetIdle";
-		status.det = DetIdle;
+	if (m_cam.isAcqRunning()) {  // acquisition thread is running
+		if (detstat == Camera::DetectorStatus::BUSY) {
+			status.det = DetExposure;
+			status.acq = AcqRunning;
+		} else {
+			status.det = DetIdle;
+			status.acq = AcqRunning;
+		}
+	} else {  // acquisition thread not running
+		if (detstat == Camera::DetectorStatus::IDLE) {
+			status.det = DetIdle;
+			status.acq = AcqReady;
+		} else {
+			status.det = DetReadout;
+			status.acq = AcqRunning;
+		}
 	}
-
-	DEB_RETURN() << DEB_VAR1(status);
+	DEB_TRACE() << "Status " << DEB_VAR1(status);
 }
 
 int Interface::getNbHwAcquiredFrames() {

@@ -213,10 +213,13 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 		  }
 		if (numtotal == 2049) {
 			// this is the kludge
-		  DEB_TRACE() << numtotal << " spurious header bytes to read ";
-		  if ((count = read(m_data_sock, bptr, numtotal)) <= 0) {
-		 	THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
-		  }
+			DEB_TRACE() << numtotal << " spurious header bytes to read ";
+			while (numtotal > 0) {
+				if ((count = read(m_data_sock, bptr, numtotal)) <= 0) {
+					THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
+				}
+				numtotal -= count;
+			}
 		} else {
 			while (1) {
 				if ((numtotal = numtotal - npoints) < 0)
@@ -231,7 +234,7 @@ void MerlinNet::getFrameHeader(void* buffer, int npoints) {
 	int numread = 0;
 	count = 1;
 	while (numread < numhdr && count > 0) {
-	  DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);;
+		DEB_TRACE() << DEB_VAR4(numread, numhdr, count, &bptr);
 		if ((count = read(m_data_sock, bptr, numhdr - numread)) <= 0) {
 			THROW_HW_ERROR(Error) << "MerlinNet::getFrameHeader(): read from socket error (errno: " << errno << ")";
 		}

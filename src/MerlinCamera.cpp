@@ -118,15 +118,6 @@ void Camera::prepareAcq() {
 	if (m_continuous == Camera::ON) {
 		setFramesPerTrigger(m_nb_frames);
 	}
-	DetectorStatus status;
-	for (int i = 0; i < 50000; i++) {
-		getStatus(status);
-		if (status == IDLE) {
-			return;
-		}
-		usleep(500000);
-	}
-	THROW_HW_ERROR(Error) << "Camera::prepareAcq(): Detector is continuously busy";
 }
 
 void Camera::startAcq() {
@@ -213,6 +204,7 @@ int Camera::readFrame(void *bptr, int frame_nb, double timeout_secs) {
 	case MerlinNet::ABORT:
 		return Camera::ABORT_ISSUED;
 	}
+	THROW_HW_ERROR(Error) << "Camera::readFrame(): Unknown select status should not happen";
 }
 
 int Camera::getNbHwAcquiredFrames() {
