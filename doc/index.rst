@@ -1,12 +1,14 @@
 .. _camera-merlin:
 
-Merlin
-------
+Merlin camera
+-------------
 
 .. image:: merlin.jpg
+   :scale: 20 %
+
 
 Introduction
-```````````
+````````````
 
 The Merlin Medipix3Rx Quad Readout detector system from Diamond Light Source Ltd is a photon counting soild state pixel detector with a silicon sensor.
 
@@ -61,6 +63,7 @@ Std capabilities
 This plugin has been implemented with the mandatory capabilites, with some limitations due to the camera server implementation.
 
 * HwDetInfo
+
  The detector is set to full image size at startup which means a binning of 1x1. There is no hardware binning
 
 * HwSync
@@ -113,4 +116,12 @@ This is a simple python test program:
   
   control.prepareAcq()
   control.startAcq()
-  time.sleep(20)
+
+  # wait for last image (#4) ready
+  lastimg = control.getStatus().ImageCounters.LastImageReady
+  while lastimg !=nframes-1:
+    time.sleep(0.01)
+    lastimg = control.getStatus().ImageCounters.LastImageReady
+ 
+  # read the first image
+  im0 = control.ReadImage(0)
