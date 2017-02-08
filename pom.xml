@@ -9,7 +9,7 @@
 
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaMerlin-${aol}-shared-${mode}</artifactId>
-    <version>1.0.5</version>
+    <version>1.0.6</version>
 	
     <packaging>nar</packaging>
     <name>LimaMerlin</name>
@@ -26,12 +26,11 @@
         <dependency>
             <groupId>fr.soleil.lib</groupId>
             <artifactId>LimaCore-${aol}-shared-${mode}</artifactId>
-            <version>1.6.2-SNAPSHOT</version></dependency>
+            <version>1.7.2-SNAPSHOT</version></dependency>
         
         <dependency>
             <groupId>ncsa.uiuc.edu</groupId>
             <artifactId>HDF5-${aol}-shared-release</artifactId>
-            <version>1.8.16</version>
         </dependency> 
                 
     </dependencies>
