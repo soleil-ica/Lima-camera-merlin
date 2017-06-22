@@ -19,36 +19,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 ############################################################################
-# CMakeLists.txt for Merlin camera
 
-SET(CMAKE_SHARED_LINKER_FLAGS "-Wl,--add-needed")
+set(test_src test_Merlin_1 test_Merlin_2 test_Merlin_3)
 
-SET(merlin_srcs src/MerlinCamera.cpp  src/MerlinInterface.cpp
-	 src/MerlinDetInfoCtrlObj.cpp src/MerlinSyncCtrlObj.cpp
-	 src/MerlinNet.cpp)
-	 
-FILE(STRINGS "VERSION" merlin_vers)
-ADD_LIBRARY(limamerlin SHARED ${merlin_srcs})
-SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
-
-#INCLUDES
-TARGET_INCLUDE_DIRECTORIES(limamerlin PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
-
-#LIBRARIES
-#NO LIBRARY
-
-TARGET_LINK_LIBRARIES(limamerlin limacore)
-
-SET_TARGET_PROPERTIES(limamerlin PROPERTIES VERSION ${merlin_vers} SOVERSION "1")
-
-INSTALL(TARGETS limamerlin LIBRARY DESTINATION lib)
-
-IF(COMPILE_SIP)
-    SET(NAME "merlin")
-    include(CameraRunSIP)
-    INSTALL(FILES python/__init__.py DESTINATION "${PYTHON_SITE_PACKAGES_DIR}/Lima/Merlin")
-ENDIF()
-
-if(COMPILE_TEST)
-	add_subdirectory(test/)
-endif()
+include(TestCamera)
