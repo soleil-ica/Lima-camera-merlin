@@ -48,6 +48,6 @@ if(LIMA_ENABLE_PYTHON)
     install(FILES python/__init__.py DESTINATION "${PYTHON_SITE_PACKAGES_DIR}/Lima/Merlin")
 endif()
 
-if(LIMA_ENABLE_TEST)
+if(LIMA_ENABLE_TESTS)
 	add_subdirectory(test/)
 endif()
