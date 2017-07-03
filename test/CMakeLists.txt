@@ -24,4 +24,4 @@
 
 set(test_src test_Merlin_1 test_Merlin_2 test_Merlin_3)
 
-include(TestCamera)
+limatools_run_camera_tests("${test_src}" ${NAME})

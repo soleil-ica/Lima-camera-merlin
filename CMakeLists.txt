@@ -40,11 +40,11 @@ target_include_directories(lima${NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/inclu
 
 target_link_libraries(lima${NAME} limacore)
 
-include(CameraVERSION)
+limatools_set_library_soversion(lima${NAME} "VERSION")
 install(TARGETS lima${NAME} LIBRARY DESTINATION lib)
 
 if(LIMA_ENABLE_PYTHON)
-    include(CameraRunSIP)
+    limatools_run_sip_for_camera(${NAME})
     install(FILES python/__init__.py DESTINATION "${PYTHON_SITE_PACKAGES_DIR}/Lima/Merlin")
 endif()
 
