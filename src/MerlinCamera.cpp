@@ -154,11 +154,14 @@ void Camera::startAcq() {
 void Camera::stopAcq() {
 	DEB_MEMBER_FUNCT();
 	AutoMutex aLock(m_cond.mutex());
-	m_wait_flag = true;
-	m_cond.broadcast();
-	if (write(m_pipes[1], "Q", 1) == -1)
-		THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
-	DEB_TRACE() << "stop requested ";
+	// Dont do anything if acquisition is idle.
+	if (m_thread_running == true) {
+        m_wait_flag = true;
+        m_cond.broadcast();
+        if (write(m_pipes[1], "Q", 1) == -1)
+            THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
+        DEB_TRACE() << "stop requested ";
+	}
 }
 
 void Camera::getStatus(DetectorStatus& status) {
