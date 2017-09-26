@@ -50,7 +50,7 @@ void SyncCtrlObj::setTrigMode(TrigMode trig_mode) {
 		THROW_HW_ERROR(InvalidValue) << "Invalid "
 					     << DEB_VAR1(trig_mode);
 	}
-       	m_cam.setTrigMode(trig_mode);
+    m_cam.setTrigMode(trig_mode);
 }
 
 void SyncCtrlObj::getTrigMode(TrigMode& trig_mode) {

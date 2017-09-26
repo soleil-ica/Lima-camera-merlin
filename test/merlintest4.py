@@ -15,6 +15,7 @@ for i in range(1):
     lima.write_attribute("latency_time",0.01)
     lima.write_attribute("acq_expo_time", exp_time)
     lima.write_attribute("acq_trigger_mode", "EXTERNAL_GATE")
+#    lima.write_attribute("acq_trigger_mode", "INTERNAL_TRIGGER")
 
     lima.command_inout("prepareAcq")
     lima.command_inout("startAcq")

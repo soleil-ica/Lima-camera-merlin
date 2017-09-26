@@ -19,17 +19,17 @@ lima.write_attribute("saving_mode","AUTO_FRAME")
 lima.write_attribute("saving_frame_per_file", nframes)
 
 #dev.write_attribute("colourMode","monochrome");
-dev.write_attribute("colourMode","colour");
+#dev.write_attribute("colourMode","colour");
 
 #dev.write_attribute("counter","counter0");
 #dev.write_attribute("counter","counter1");
 #dev.write_attribute("counter","both");
 
 # do acquisition
+lima.write_attribute("acq_trigger_mode", "INTERNAL_TRIGGER")
 lima.write_attribute("acq_nb_frames",nframes)
 lima.write_attribute("latency_time",0.01)
 lima.write_attribute("acq_expo_time",exp_time)
-lima.write_attribute("acq_trigger_mode", "INTERNAL_TRIGGER")
 
 for i in range(10):
     lima.command_inout("prepareAcq")

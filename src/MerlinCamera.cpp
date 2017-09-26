@@ -431,9 +431,11 @@ void Camera::setTrigMode(TrigMode mode) {
     case ExtTrigSingle:
         setTriggerStartType(Camera::RISING_EDGE_TTL);
         setTriggerStopType(Camera::INTERNAL);
+        break;
     case ExtTrigMult:
         setTriggerStartType(Camera::RISING_EDGE_TTL);
         setTriggerStopType(Camera::INTERNAL);
+        break;
     case ExtGate:
         setTriggerStartType(Camera::RISING_EDGE_TTL);
         setTriggerStopType(Camera::FALLING_EDGE_TTL);
