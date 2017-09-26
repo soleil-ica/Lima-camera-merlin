@@ -34,7 +34,8 @@ int main () {
 	Interface *m_interface;
 	CtControl* m_control;
 
-	string hostname = "192.168.0.62";
+//	string hostname = "192.168.0.62";
+	string hostname = "148.79.215.54";
 	int port = 6341;
 	int dataPort = 6342;
 	int nx = 512;
@@ -55,7 +56,7 @@ int main () {
 	  m_camera = new Camera(hostname, port, dataPort, nx, ny, nchips, simulate);
 	  m_interface = new Interface(*m_camera);
 	  m_control = new CtControl(m_interface);
-	  CtAcquisition* ct_acq = m_control->acquisition();
+//	  CtAcquisition* ct_acq = m_control->acquisition();
 
 		string type;
 		m_camera->getDetectorType(type);
@@ -109,22 +110,6 @@ int main () {
 		m_camera->getContinuousRW(mode);
 		cout << "ContinuousRW: " << mode << endl;
 
-		m_camera->setCounterDepth(Camera::BPP1);
-		m_camera->getCounterDepth(depth);
-		cout << "CounterDepth: " << depth << endl;
-
-		m_camera->setCounterDepth(Camera::BPP6);
-		m_camera->getCounterDepth(depth);
-		cout << "CounterDepth: " << depth << endl;
-
-		m_camera->setCounterDepth(Camera::BPP24);
-		m_camera->getCounterDepth(depth);
-		cout << "CounterDepth: " << depth << endl;
-
-		m_camera->setCounterDepth(Camera::BPP12);
-		m_camera->getCounterDepth(depth);
-		cout << "CounterDepth: " << depth << endl;
-		
 		m_camera->setEnableCounters(Camera::BOTH);
 		m_camera->getEnableCounters(counter);
 		cout << "EnableCounters: " << counter << endl;
@@ -261,8 +246,6 @@ int main () {
 		m_camera->setFramesPerTrigger(1);
 		m_camera->setTriggerStartType(Camera::INTERNAL);
 		m_camera->setTriggerStopType(Camera::INTERNAL);
-		//		m_camera->setCounterDepth(Camera::BPP12);
-		//		m_camera->setEnableCounters(Camera::BOTH);
 		
 		// setup fileformat and data saving info
 		CtSaving* saving = m_control->saving();

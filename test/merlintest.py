@@ -16,17 +16,12 @@ lima.write_attribute("saving_overwrite_policy","Overwrite")
 lima.write_attribute("saving_suffix", ".hdf")
 lima.write_attribute("saving_prefix","merlin_")
 lima.write_attribute("saving_mode","AUTO_FRAME")
-lima.write_attribute("saving_frames_per_file", nframes)
+lima.write_attribute("saving_frame_per_file", nframes)
 
 #dev.write_attribute("colourMode","monochrome");
 dev.write_attribute("colourMode","colour");
 
-#dev.write_attribute("depth","BPP1");
-#dev.write_attribute("depth","BPP6");
-dev.write_attribute("depth","BPP12");
-#dev.write_attribute("depth","BPP24");
-
-dev.write_attribute("counter","counter0");
+#dev.write_attribute("counter","counter0");
 #dev.write_attribute("counter","counter1");
 #dev.write_attribute("counter","both");
 

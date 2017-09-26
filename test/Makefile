@@ -21,7 +21,7 @@
 ############################################################################
 include ../../../config.inc
 
-SRCS = MerlinTest.cpp MerlinTest2.cpp MerlinTest3.cpp
+SRCS = MerlinTest.cpp MerlinTest2.cpp MerlinTest3.cpp MerlinTest4.cpp
 
 
 LDFLAGS = -pthread -L../../../build  -L../../../third-party/Processlib/build 
@@ -35,7 +35,8 @@ CXXFLAGS = -I../include \
 	   -I../../../third-party/Processlib/core/include \
 	   -I../../../third-party/Processlib/tasks/include \
 	   -I../../../third-party/Sps/Include \
-	   -Wall -pthread -g
+	   -I/usr/local/include/tango \
+	   -Wall -pthread -std=c++11 -g
 
 ifneq ($(COMPILE_CONFIG),0)
 CXXFLAGS += -DWITH_CONFIG -I../../third-party/libconfig/lib
@@ -47,10 +48,12 @@ CXXFLAGS += -DWITH_SPS_IMAGE -I../../third-party/libconfig/lib
 LDLIBS += -L../../../third-party/sps/lib/.libs -lconfig
 endif
 
-HDF5_LDFLAGS := -L../../../third-party/hdf5/lib -L../../../install/Lima/lib
+HDF5_LDFLAGS := -L../../../third-party/hdf5/c++/src/.libs -L../../../third-party/hdf5/src/.libs -L../../../install/Lima/lib
 HDF5_LDLIBS := -lhdf5_cpp -lhdf5
 
-test-progs = merlintest merlintest2 merlintest3
+TANGO_LIBS := -L/usr/local/lib -ltango -lzmq -lomniORB4 -lomnithread
+
+test-progs = merlintest merlintest2 merlintest3 merlintest4
 
 all: 	$(test-progs)
 
@@ -63,8 +66,11 @@ merlintest2:		MerlinTest2.o ../src/Merlin.o
 merlintest3:		MerlinTest3.o ../src/Merlin.o
 	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS)
 
+merlintest4:		MerlinTest4.o ../src/Merlin.o
+	$(CXX) $(LDFLAGS) -o $@ $+ $(LDLIBS) $(HDF5_LDFLAGS) $(HDF5_LDLIBS) $(TANGO_LIBS)
+
 clean:
-	rm -f *.o *.P merlintest merlintest2 merlintest3
+	rm -f *.o *.P merlintest merlintest2 merlintest3 merlinTest4
 
 %.o : %.cpp
 	$(COMPILE.cpp) -MD $(CXXFLAGS) -o $@ $<
