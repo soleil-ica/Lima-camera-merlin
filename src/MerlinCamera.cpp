@@ -24,10 +24,11 @@
 #include <iostream>
 #include <string>
 #include <math.h>
-#include <signal.h>
-#include <unistd.h>
+#include <chrono>
 #include <climits>
 #include <iomanip>
+#include <signal.h>
+#include <unistd.h>
 #include <errno.h>
 #include "lima/Exceptions.h"
 #include "lima/Debug.h"
@@ -37,6 +38,8 @@
 using namespace lima;
 using namespace lima::Merlin;
 using namespace std;
+
+typedef std::chrono::high_resolution_clock Clock;
 
 std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems);
 std::vector<std::string> split(const std::string &s, char delim);
@@ -128,17 +131,37 @@ void Camera::startAcq() {
 	AutoMutex aLock(m_cond.mutex());
 	m_wait_flag = false;
 	m_quit = false;
+    // This is a kludge for Merlin running in LabView, YUK!
+	// It's absolute crap I'm forced to put startAcq here whereas it should be
+	// in the thread just so we can wait for the crappy labview to assert armed
+    startAcquisition();
+    TrigMode trig_mode;
+    getTrigMode(trig_mode);
+    if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
+        while(1) {
+            DetectorStatus status;
+            getDetectorStatus(status);
+            if (status == Camera::DetectorStatus::ARMED) {
+                std::cout << "status " << status << std::endl;
+                break;
+            }
+            usleep(100);
+        }
+    }
 	m_cond.broadcast();
 }
 
 void Camera::stopAcq() {
 	DEB_MEMBER_FUNCT();
 	AutoMutex aLock(m_cond.mutex());
-	m_wait_flag = true;
-	m_cond.broadcast();
-	if (write(m_pipes[1], "Q", 1) == -1)
-		THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
-	DEB_TRACE() << "stop requested ";
+	// Dont do anything if acquisition is idle.
+	if (m_thread_running == true) {
+        m_wait_flag = true;
+        m_cond.broadcast();
+        if (write(m_pipes[1], "Q", 1) == -1)
+            THROW_HW_ERROR(Error) << "Camera::stopAcq(): Something wrong with the pipe";
+        DEB_TRACE() << "stop requested ";
+	}
 }
 
 void Camera::getStatus(DetectorStatus& status) {
@@ -159,15 +182,18 @@ int Camera::readFrame(void *bptr, int frame_nb, double timeout_secs) {
 	double fractional = modf(timeout_secs, &seconds);
 	int usecs = int(fractional * 1000000);
 	struct timeval tv = { int(seconds), usecs };
-	DEB_TRACE() << "Camera::readFrame() " << DEB_VAR5(frame_nb, m_image_type, m_npixels, m_nrasters, m_counter);
+	std::cout << "Camera::readFrame() " << DEB_VAR5(frame_nb, m_image_type, m_npixels, m_nrasters, m_counter) << std::endl;
 	int selectStatus = m_merlin->select(m_pipes[0], tv);
 	AutoMutex aLock(m_cond.mutex());
+	std::cout << "Camera::readFrame() " << DEB_VAR1(selectStatus) << std::endl;
 	switch (selectStatus)
 	{
 	case MerlinNet::PROCEED:
+		std::cout << "Proceeding" << std::endl;
 		if (frame_nb == 0) {
 			m_merlin->getHeader(bptr);
 		}
+		std::cout << "Got header" << std::endl;
 		loop = (m_counter == Camera::BOTH) ? 2 : 1;
 		mode = (m_colourMode == Camera::Colour) ? 4 : 1;
 		for (int i = 0; i < loop*mode; i++) {
@@ -214,30 +240,27 @@ int Camera::getNbHwAcquiredFrames() {
 
 void Camera::AcqThread::threadFunction() {
 	DEB_MEMBER_FUNCT();
-	AutoMutex aLock(m_cam.m_cond.mutex());
+//	AutoMutex aLock(m_cam.m_cond.mutex());
 	StdBufferCbMgr& buffer_mgr = m_cam.m_bufferCtrlObj.getBuffer();
 
 	while (!m_cam.m_quit) {
 		while (m_cam.m_wait_flag && !m_cam.m_quit) {
-			DEB_TRACE() << "Wait...............";
+			std::cout << "Wait for start acquisition" << std::endl;
 			m_cam.m_thread_running = false;
-			m_cam.m_cond.broadcast();
-			aLock.unlock();
+			AutoMutex lock(m_cam.m_cond.mutex());
 			m_cam.m_cond.wait();
 		}
 		if (m_cam.m_quit)
 			return;
-		DEB_TRACE() << "AcqThread Running";
-		m_cam.startAcquisition();
+		std::cout << "AcqThread Running" << std::endl;
 		m_cam.m_thread_running = true;
+		auto t1 = Clock::now();
 
-		m_cam.m_cond.broadcast();
-		aLock.unlock();
 		double timeout = fmax(120.0, m_cam.m_exp_time*2.0);
 		bool continueFlag = true;
 		while (continueFlag && (!m_cam.m_nb_frames || m_cam.m_acq_frame_nb < m_cam.m_nb_frames)) {
 
-			DEB_TRACE() << "before getFrameBufferptr";
+			std::cout << "before getFrameBufferptr" << std::endl;
 			void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
 			HwFrameInfoType frame_info;
 			int rc = m_cam.readFrame(bptr, m_cam.m_acq_frame_nb, timeout);
@@ -245,33 +268,36 @@ void Camera::AcqThread::threadFunction() {
 			case Camera::STOP_ISSUED:
 				m_cam.stopAcquisition();
 				timeout = 0.25;
-				DEB_TRACE() << "Stop called, timeout modified to 0.25 secs";
+				std::cout << "Stop called, timeout modified to 0.25 secs" << std::endl;
 				break;
 			case Camera::ABORT_ISSUED:
-				m_cam.abort();
-				DEB_TRACE() << "Abort called";
+				m_cam.abortAcquisition();
+                continueFlag = false;
+				std::cout << "Abort called" << std::endl;
+				break;
 			case Camera::STOPPED_AND_TIMEOUT:
 				continueFlag = false;
-				DEB_TRACE() << "Stopped with read timeout";
+				std::cout << "Stopped with read timeout" << std::endl;
 				break;
 			case Camera::READ_OK:
-			  //				HwFrameInfoType frame_info;
 				frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
-				if (!(continueFlag = buffer_mgr.newFrameReady(frame_info))) {
-					break; // Problem with the saving
+				if ((continueFlag = buffer_mgr.newFrameReady(frame_info))) {
+					std::cout << "acqThread::threadFunction() newframe ready " << std::endl;
+					AutoMutex lock(m_cam.m_cond.mutex());
+					++m_cam.m_acq_frame_nb;
+					std::cout << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames" << std::endl;
 				}
-				DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
-				aLock.lock();
-				++m_cam.m_acq_frame_nb;
-				aLock.unlock();
-				DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
 				break;
 			default:
-			  DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
+			  std::cout << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc) << std::endl;
 			}
 		}
-		DEB_TRACE() << " AcqThread::threadfunction() Setting thread running flag to false";
-		aLock.lock();
+		auto t2 = Clock::now();
+		std::cout << "Delta t2-t1: " << std::chrono::duration_cast < std::chrono::nanoseconds
+				> (t2 - t1).count() << " nanoseconds" << std::endl;
+		std::cout << " AcqThread::threadfunction() Setting thread running flag to false" << std::endl;
+		AutoMutex lock(m_cam.m_cond.mutex());
+//		aLock.lock();
 		m_cam.m_thread_running = false;
 		m_cam.m_wait_flag = true;
 	}
@@ -372,24 +398,53 @@ HwBufferCtrlObj* Camera::getBufferCtrlObj() {
 	return &m_bufferCtrlObj;
 }
 
+bool Camera::checkTrigMode(TrigMode mode) {
+    DEB_MEMBER_FUNCT();
+    bool valid_mode;
+
+    switch (mode) {
+    case IntTrig:
+    case IntTrigMult:
+    case ExtTrigSingle:
+    case ExtTrigMult:
+    case ExtGate:
+            valid_mode = true;
+        break;
+    case ExtTrigReadout:
+    default:
+        valid_mode = false;
+        break;
+    }
+    return valid_mode;
+}
+
 void Camera::setTrigMode(TrigMode mode) {
 	DEB_MEMBER_FUNCT();
 	DEB_TRACE() << "Camera::setTrigMode() " << DEB_VAR1(mode);
 	DEB_PARAM() << DEB_VAR1(mode);
-	switch (mode) {
-	case IntTrig:
-	case IntTrigMult:
-	case ExtTrigMult:
-		m_trigger_mode = mode;
-		break;
-	case ExtTrigSingle:
-	case ExtGate:
-	case ExtStartStop:
-	case ExtTrigReadout:
-	default:
-		THROW_HW_ERROR(Error) << "Cannot change the Trigger Mode of the camera, this mode is not managed !";
-		break;
-	}
+    switch (mode) {
+    case IntTrig:
+    case IntTrigMult:
+        setTriggerStartType(Camera::INTERNAL);
+        setTriggerStopType(Camera::INTERNAL);
+        break;
+    case ExtTrigSingle:
+        setTriggerStartType(Camera::RISING_EDGE_TTL);
+        setTriggerStopType(Camera::INTERNAL);
+        break;
+    case ExtTrigMult:
+        setTriggerStartType(Camera::RISING_EDGE_TTL);
+        setTriggerStopType(Camera::INTERNAL);
+        break;
+    case ExtGate:
+        setTriggerStartType(Camera::RISING_EDGE_TTL);
+        setTriggerStopType(Camera::FALLING_EDGE_TTL);
+        break;
+    case ExtTrigReadout:
+    default:
+        break;
+    }
+	m_trigger_mode = mode;
 }
 
 void Camera::getTrigMode(TrigMode& mode) {
@@ -504,15 +559,15 @@ void Camera::softTrigger() {
 	requestCmd(SOFTTRIGGER);
 }
 
-void Camera::abort() {
+void Camera::abortAcquisition() {
 	DEB_MEMBER_FUNCT();
 	requestCmd(ABORT);
 }
 
-void Camera::thscan() {
-	DEB_MEMBER_FUNCT();
-	requestCmd(THSCAN);
-}
+//void Camera::thscan() {
+//	DEB_MEMBER_FUNCT();
+//	requestCmd(THSCAN);
+//}
 
 void Camera::resetHw() {
 	DEB_MEMBER_FUNCT();
@@ -801,63 +856,63 @@ void Camera::getTriggerUseDelay(Switch &mode) {
 	mode = static_cast<Switch>(value);
 }
 
-void Camera::setTHScanNum(int num) {
-	DEB_MEMBER_FUNCT();
-	if (num < 0 || num > 7) {
-		THROW_HW_ERROR(Error) << "Invalid scan number " << num;
-	}
-	requestSet(THSCAN, num);
-}
-
-void Camera::getTHScanNum(int &num) {
-	DEB_MEMBER_FUNCT();
-	requestGet(THSCAN, num);
-}
-
-void Camera::setTHStart(float kev) {
-	DEB_MEMBER_FUNCT();
-	if (kev < 0.0 || kev > 999.99) {
-		THROW_HW_ERROR(Error) << "Invalid threshold start value (keV) " << kev;
-	}
-	stringstream ss;
-	ss << fixed << setprecision(2) << kev;
-	requestSet(THSTART, ss.str());
-}
-
-void Camera::getTHStart(float &kev) {
-	DEB_MEMBER_FUNCT();
-	requestGet(THSTART, kev);
-}
-
-void Camera::setTHStop(float kev) {
-	DEB_MEMBER_FUNCT();
-	if (kev < 0.0 || kev > 999.99) {
-		THROW_HW_ERROR(Error) << "Invalid threshold stop value (keV) " << kev;
-	}
-	stringstream ss;
-	ss << fixed << setprecision(2) << kev;
-	requestSet(THSTOP, ss.str());
-}
-
-void Camera::getTHStop(float &kev) {
-	DEB_MEMBER_FUNCT();
-	requestGet(THSTOP, kev);
-}
-
-void Camera::setTHStep(float kev) {
-	DEB_MEMBER_FUNCT();
-	if (kev < 0.0 || kev > 999.99) {
-		THROW_HW_ERROR(Error) << "Invalid threshold step value (keV) " << kev;
-	}
-	stringstream ss;
-	ss << fixed << setprecision(2) << kev;
-	requestSet(THSTEP, ss.str());
-}
-
-void Camera::getTHStep(float &kev) {
-	DEB_MEMBER_FUNCT();
-	requestGet(THSTEP, kev);
-}
+//void Camera::setTHScanNum(int num) {
+//	DEB_MEMBER_FUNCT();
+//	if (num < 0 || num > 7) {
+//		THROW_HW_ERROR(Error) << "Invalid scan number " << num;
+//	}
+//	requestSet(THSCAN, num);
+//}
+//
+//void Camera::getTHScanNum(int &num) {
+//	DEB_MEMBER_FUNCT();
+//	requestGet(THSCAN, num);
+//}
+//
+//void Camera::setTHStart(float kev) {
+//	DEB_MEMBER_FUNCT();
+//	if (kev < 0.0 || kev > 999.99) {
+//		THROW_HW_ERROR(Error) << "Invalid threshold start value (keV) " << kev;
+//	}
+//	stringstream ss;
+//	ss << fixed << setprecision(2) << kev;
+//	requestSet(THSTART, ss.str());
+//}
+//
+//void Camera::getTHStart(float &kev) {
+//	DEB_MEMBER_FUNCT();
+//	requestGet(THSTART, kev);
+//}
+//
+//void Camera::setTHStop(float kev) {
+//	DEB_MEMBER_FUNCT();
+//	if (kev < 0.0 || kev > 999.99) {
+//		THROW_HW_ERROR(Error) << "Invalid threshold stop value (keV) " << kev;
+//	}
+//	stringstream ss;
+//	ss << fixed << setprecision(2) << kev;
+//	requestSet(THSTOP, ss.str());
+//}
+//
+//void Camera::getTHStop(float &kev) {
+//	DEB_MEMBER_FUNCT();
+//	requestGet(THSTOP, kev);
+//}
+//
+//void Camera::setTHStep(float kev) {
+//	DEB_MEMBER_FUNCT();
+//	if (kev < 0.0 || kev > 999.99) {
+//		THROW_HW_ERROR(Error) << "Invalid threshold step value (keV) " << kev;
+//	}
+//	stringstream ss;
+//	ss << fixed << setprecision(2) << kev;
+//	requestSet(THSTEP, ss.str());
+//}
+//
+//void Camera::getTHStep(float &kev) {
+//	DEB_MEMBER_FUNCT();
+//	requestGet(THSTEP, kev);
+//}
 
 void Camera::setFileDirectory(string directory) {
 	DEB_MEMBER_FUNCT();
@@ -896,7 +951,7 @@ void Camera::getDetectorStatus(DetectorStatus &status) {
 	DEB_MEMBER_FUNCT();
 	int stat;
 	requestGet(DETECTORSTATUS, stat);
-	DEB_TRACE() << "Detector status returned: " << stat;
+	std::cout << "Detector status returned: " << stat << std::endl;
 	status = static_cast<DetectorStatus>(stat);
 }
 
@@ -1024,6 +1079,7 @@ void Camera::sendCmd(Action type, string cmd, string& reply) {
 	  simulate(type, cmd, reply);
 	} else {
 		m_merlin->sendCmd(cmd, reply);
+		DEB_TRACE() << "Camera::sendCmd() reply: " << reply;
 	}
 }
 
@@ -1092,15 +1148,15 @@ std::vector<std::string> split(const std::string &s, char delim) {
 	return elems;
 }
 
-const std::string convert_2_string(const Camera::Counter& counter) {
-	const char* name = "Unknown";
-	switch (counter) {
-	case Camera::COUNTER0: name = "Counter0";	break;
-	case Camera::COUNTER1: name = "Counter1"; break;
-	case Camera::BOTH: name = "Both";	break;
-	}
-	return name;
-}
+//const std::string convert_2_string(const Camera::Counter& counter) {
+//	const char* name = "Unknown";
+//	switch (counter) {
+//	case Camera::COUNTER0: name = "Counter0";	break;
+//	case Camera::COUNTER1: name = "Counter1"; break;
+//	case Camera::BOTH: name = "Both";	break;
+//	}
+//	return name;
+//}
 
 // ----------------------- Simulate code now --------------------
 
