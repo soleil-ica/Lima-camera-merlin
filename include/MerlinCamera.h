@@ -130,6 +130,8 @@ public:
 	void getColourMode(ColourMode &mode);
 	void setContinuousRW(Switch mode);
 	void getContinuousRW(Switch &mode);
+    void setCounterDepth(Depth depth);
+    void getCounterDepth(Depth &depth);
 	void setEnableCounters(Counter counter);
 	void getEnableCounters(Counter &counter);
 	void setFramesPerTrigger(int frames);
@@ -299,8 +301,6 @@ private:
 	void getAcquisitionPeriod(float &millisec);
 	void setAcquisitionTime(float millisec);
 	void getAcquisitionTime(float &millisec);
-	void setCounterDepth(Depth depth);
-	void getCounterDepth(Depth &depth);
 };
 
 

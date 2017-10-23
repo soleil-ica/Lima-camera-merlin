@@ -107,6 +107,8 @@ public:
 	void getColourMode(ColourMode &mode /Out/);
 	void setContinuousRW(Switch mode);
 	void getContinuousRW(Switch &mode /Out/);
+    void setCounterDepth(Depth depth);
+    void getCounterDepth(Depth &depth /Out/);
 	void setEnableCounters(Counter counter);
 	void getEnableCounters(Counter &counter /Out/);
 	void setFramesPerTrigger(int frames);
