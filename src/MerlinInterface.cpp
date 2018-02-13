@@ -78,10 +78,15 @@ void Interface::getStatus(StatusType& status) {
 	DEB_MEMBER_FUNCT();
 	Camera::DetectorStatus detstat;
 	m_cam.getStatus(detstat);
+    DEB_TRACE() << "Status " << DEB_VAR1(detstat);
+	DEB_TRACE() << "Thread running " << m_cam.isAcqRunning();
 	if (m_cam.isAcqRunning()) {  // acquisition thread is running
 		if (detstat == Camera::DetectorStatus::BUSY) {
 			status.det = DetExposure;
 			status.acq = AcqRunning;
+		} else if (detstat == Camera::DetectorStatus::ARMED) {
+            	status.det = DetIdle;
+	            status.acq = AcqReady;
 		} else {
 			status.det = DetIdle;
 			status.acq = AcqRunning;
