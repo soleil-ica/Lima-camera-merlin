@@ -35,11 +35,14 @@ public:
 	       int npixels, int nrasters, int nchips, bool simulate);
 	~Camera();
 
-	enum DetectorStatus {
-	  IDLE,     ///< Detector idle
-	  BUSY,     ///< Detector Busy
-	  STANDBY,  ///< Detecotr in standby
-	};
+    enum DetectorStatus {
+      IDLE,     ///< Detector idle
+      BUSY,     ///< Detector Busy
+      STANDBY,  ///< Detector in standby
+      ERROR,    ///< Error
+      ARMED,    ///< Armed for external start
+      INIT,     ///< Initialising
+    };
 	enum ColourMode {Monochrome, Colour};
 	enum Switch {OFF, ON};
 	enum GainSetting {SLGM, LGM, HGM, SHGM};
@@ -95,17 +98,8 @@ public:
 	// -- merlin specific functions
 	///////////////////////////////
 
-	void startAcquisition();
-	void stopAcquisition();
 	void softTrigger();
-	void abort();
-	void thscan();
-	void resetHw();
 
-	void setAcquisitionPeriod(float millisec);
-	void getAcquisitionPeriod(float &millisec /Out/);
-	void setAcquisitionTime(float millisec);
-	void getAcquisitionTime(float &millisec /Out/);
 	void getSoftwareVersion(float &version /Out/);
 	void setChargeSumming(Switch mode);
 	void getChargeSumming(Switch &mode /Out/);
@@ -113,8 +107,8 @@ public:
 	void getColourMode(ColourMode &mode /Out/);
 	void setContinuousRW(Switch mode);
 	void getContinuousRW(Switch &mode /Out/);
-	void setCounterDepth(Depth depth);
-	void getCounterDepth(Depth &depth /Out/);
+    void setCounterDepth(Depth depth);
+    void getCounterDepth(Depth &depth /Out/);
 	void setEnableCounters(Counter counter);
 	void getEnableCounters(Counter &counter /Out/);
 	void setFramesPerTrigger(int frames);
@@ -146,14 +140,6 @@ public:
 	void setTriggerInLVDSDelay(long long delay);
 	void getTriggerUseDelay(Switch &mode /Out/);
 	void setTriggerUseDelay(Switch mode);
-	void setTHScanNum(int num);
-	void getTHScanNum(int &num /Out/);
-	void setTHStart(float kev);
-	void getTHStart(float &kev /Out/);
-	void setTHStop(float kev);
-	void getTHStop(float &kev /Out/);
-	void setTHStep(float kev);
-	void getTHStep(float &kev /Out/);
 	void setFileDirectory(std::string directory);
 	void getFileDirectory(std::string &directory /Out/);
 	void setFileName(std::string filename);

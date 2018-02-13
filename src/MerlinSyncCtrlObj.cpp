@@ -36,22 +36,10 @@ SyncCtrlObj::~SyncCtrlObj() {
 }
 
 bool SyncCtrlObj::checkTrigMode(TrigMode trig_mode) {
-	DEB_MEMBER_FUNCT();
-	DEB_PARAM() << DEB_VAR1(trig_mode);
+    DEB_MEMBER_FUNCT();
+    DEB_PARAM() << DEB_VAR1(trig_mode);
 
-	bool valid;
-	switch (trig_mode) {
-	case IntTrig:
-	case IntTrigMult:
-	case ExtTrigMult:
-		valid = true;
-		break;
-	default:
-		valid = false;
-		break;
-	}
-	DEB_RETURN() << DEB_VAR1(valid);
-	return valid;
+    return m_cam.checkTrigMode(trig_mode);
 }
 
 void SyncCtrlObj::setTrigMode(TrigMode trig_mode) {
@@ -62,7 +50,7 @@ void SyncCtrlObj::setTrigMode(TrigMode trig_mode) {
 		THROW_HW_ERROR(InvalidValue) << "Invalid "
 					     << DEB_VAR1(trig_mode);
 	}
-       	m_cam.setTrigMode(trig_mode);
+    m_cam.setTrigMode(trig_mode);
 }
 
 void SyncCtrlObj::getTrigMode(TrigMode& trig_mode) {

@@ -60,6 +60,9 @@ public:
 	  IDLE,     ///< Detector idle
 	  BUSY,     ///< Detector Busy
 	  STANDBY,  ///< Detector in standby
+	  ERROR,    ///< Error
+	  ARMED,    ///< Armed for external start
+	  INIT,     ///< Initialising
 	};
 	enum ColourMode {Monochrome, Colour};
 	enum Switch {OFF, ON};
@@ -97,6 +100,7 @@ public:
 	//-- Synch control object
 	void setTrigMode(TrigMode mode);
 	void getTrigMode(TrigMode& mode);
+	bool checkTrigMode(TrigMode mode);
 
 	void setExpTime(double exp_time);
 	void getExpTime(double& exp_time);
@@ -116,17 +120,9 @@ public:
 	// -- merlin specific functions
 	///////////////////////////////
 
-	void startAcquisition();
-	void stopAcquisition();
 	void softTrigger();
-	void abort();
-	void thscan();
-	void resetHw();
+//	void thscan();
 
-	void setAcquisitionPeriod(float millisec);
-	void getAcquisitionPeriod(float &millisec);
-	void setAcquisitionTime(float millisec);
-	void getAcquisitionTime(float &millisec);
 	void getSoftwareVersion(float &version);
 	void setChargeSumming(Switch mode);
 	void getChargeSumming(Switch &mode);
@@ -134,8 +130,8 @@ public:
 	void getColourMode(ColourMode &mode);
 	void setContinuousRW(Switch mode);
 	void getContinuousRW(Switch &mode);
-	void setCounterDepth(Depth depth);
-	void getCounterDepth(Depth &depth);
+    void setCounterDepth(Depth depth);
+    void getCounterDepth(Depth &depth);
 	void setEnableCounters(Counter counter);
 	void getEnableCounters(Counter &counter);
 	void setFramesPerTrigger(int frames);
@@ -167,14 +163,14 @@ public:
 	void setTriggerInLVDSDelay(long long delay);
 	void getTriggerUseDelay(Switch &mode);
 	void setTriggerUseDelay(Switch mode);
-	void setTHScanNum(int num);
-	void getTHScanNum(int &num);
-	void setTHStart(float kev);
-	void getTHStart(float &kev);
-	void setTHStop(float kev);
-	void getTHStop(float &kev);
-	void setTHStep(float kev);
-	void getTHStep(float &kev);
+//	void setTHScanNum(int num);
+//	void getTHScanNum(int &num);
+//	void setTHStart(float kev);
+//	void getTHStart(float &kev);
+//	void setTHStop(float kev);
+//	void getTHStop(float &kev);
+//	void setTHStep(float kev);
+//	void getTHStep(float &kev);
 	void setFileDirectory(string directory);
 	void getFileDirectory(string &directory);
 	void setFileName(string filename);
@@ -296,7 +292,15 @@ private:
 
 	static std::map<ActionCmd, std::string> actionCmdMap;
 
+	void startAcquisition();
+	void stopAcquisition();
+	void abortAcquisition();
+	void resetHw();
 	int readFrame(void *bptr, int frame_nb, double timeout_secs);
+	void setAcquisitionPeriod(float millisec);
+	void getAcquisitionPeriod(float &millisec);
+	void setAcquisitionTime(float millisec);
+	void getAcquisitionTime(float &millisec);
 };
 
 
@@ -329,9 +333,19 @@ inline ostream& operator <<(ostream& os, Camera::GainSetting &gain) {
 	return os << name;
 }
 
-const std::string convert_2_string(const Camera::Counter& counter);
+//const std::string convert_2_string(const Camera::Counter& counter);
 inline ostream& operator <<(ostream& os, Camera::Counter &counter) {
-	return os << convert_2_string(counter);
+    //const std::string convert_2_string(const Camera::Counter& counter) {
+    const char* name = "Unknown";
+    switch (counter) {
+    case Camera::COUNTER0: name = "Counter0";   break;
+    case Camera::COUNTER1: name = "Counter1"; break;
+    case Camera::BOTH: name = "Both";   break;
+    }
+    return os << name;
+    //  return name;
+    //}
+    //return os << convert_2_string(counter);
 }
 
 inline std::ostream& operator <<(std::ostream& os, Camera::Trigger const &trigger) {

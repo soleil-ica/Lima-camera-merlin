@@ -31,7 +31,8 @@ int main () {
 	Interface *m_interface;
 	CtControl* m_control;
 
-	string hostname = "192.168.0.62";
+//	string hostname = "192.168.0.62";
+    string hostname = "148.79.215.54";
 	int port = 6341;
 	int dataPort = 6342;
 	int nx = 512;
