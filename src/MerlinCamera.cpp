@@ -65,8 +65,8 @@ private:
 //---------------------------
 
 Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
+  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(1), m_nrasters(1), 
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_acq_frame_nb(0) {
 
 	DEB_CONSTRUCTOR();
 
