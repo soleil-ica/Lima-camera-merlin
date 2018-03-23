@@ -121,6 +121,7 @@ public:
 	///////////////////////////////
 
 	void softTrigger();
+    void abortAcquisition();
 //	void thscan();
 
 	void getSoftwareVersion(float &version);
@@ -294,7 +295,7 @@ private:
 
 	void startAcquisition();
 	void stopAcquisition();
-	void abortAcquisition();
+	
 	void resetHw();
 	int readFrame(void *bptr, int frame_nb, double timeout_secs);
 	void setAcquisitionPeriod(float millisec);
