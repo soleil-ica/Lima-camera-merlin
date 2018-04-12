@@ -9,7 +9,7 @@
 
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaMerlin-${aol}-shared-${mode}</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 	
     <packaging>nar</packaging>
     <name>LimaMerlin</name>
