@@ -54,6 +54,8 @@ public:
 
 	Camera(std::string& hostname, int cmdPort = 6341, int dataPort = 6342,
 	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort = 6341, int dataPort = 6342,
+	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
 	~Camera();
 	
 	enum DetectorStatus {
@@ -249,7 +251,8 @@ private:
 	};
 
 	MerlinNet *m_merlin;
-	string m_hostname;
+	string m_cmdHostname;
+	string m_dataHostname;
 	int m_cmdPort;
 	int m_dataPort;
 	int m_npixels;

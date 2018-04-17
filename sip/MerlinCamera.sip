@@ -33,6 +33,8 @@ public:
 
 	Camera(std::string& hostname, int cmdPort, int dataPort,
 	       int npixels, int nrasters, int nchips, bool simulate);
+	Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort,
+	       int npixels, int nrasters, int nchips, bool simulate);
 	~Camera();
 
     enum DetectorStatus {
