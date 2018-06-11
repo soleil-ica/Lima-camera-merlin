@@ -25,37 +25,23 @@ This program must be running prior to starting Lima.
 Installation & Module configuration
 ```````````````````````````````````
 
-The minimum configuration file is *config.inc* :
+Follow the generic instructions in :ref:`build_installation`. If using CMake directly, add the following flag:
 
 .. code-block:: sh
 
-  COMPILE_CORE=1
-  COMPILE_SIMULATOR=0
-  COMPILE_SPS_IMAGE=1
-  COMPILE_ESPIA=0
-  COMPILE_FRELON=0
-  COMPILE_MAXIPIX=0
-  COMPILE_PILATUS=0
-  COMPILE_POINTGREY=0
-  COMPILE_BASLER=0
-  COMPILE_MERLIN=1
-  COMPILE_CBF_SAVING=0
-  export COMPILE_CORE COMPILE_SPS_IMAGE COMPILE_SIMULATOR \
-         COMPILE_ESPIA COMPILE_FRELON COMPILE_MAXIPIX COMPILE_PILATUS \
-         COMPILE_POINTGREY COMPILE_MERLIN COMPILE_BASLER COMPILE_CBF_SAVING
+ -DLIMACAMERA_MERLIN=true
 
--  start the compilation :ref:`linux_compilation`
-
--  finally for the Tango server installation :ref:`tango_installation`
+For the Tango server installation, refers to :ref:`tango_installation`.
 
 Initialisation and Capabilities
 ```````````````````````````````
-This plugin has been implemented for a standard LIMA framework
+
+Implementing a new plugin for new detector is driven by the LIMA framework but the developer has some freedoms to choose which standard and specific features will be made available. This section is supposed to give you good knowledge regarding camera features within the LIMA framework.
 
 Camera initialisation
-......................
+.....................
 
-The camera has to be initialized using the MerlinCamera class. The constructor requires the hostname of the detector system. 
+The camera has to be initialized using the :cpp:class:`MerlinCamera` class. The constructor requires the hostname of the detector system.
 
 Std capabilities
 ................
@@ -68,15 +54,16 @@ This plugin has been implemented with the mandatory capabilites, with some limit
 
 * HwSync
 
- - The supported trigger modes are:
+  The supported trigger modes are:
 
    - IntTrig
    - IntTrigMult
    - ExtTrigSingle
    - ExtTrigMult
- 
+
 Testing
-````````````
+```````
+
 This is a simple python test program:
 
 .. code-block:: python
@@ -112,8 +99,8 @@ This is a simple python test program:
   # do acquisition
   acq=control.acquisition()
   acq.setAcqExpoTime(acqtime)
-  acq.setAcqNbFrames(nframes) 
-  
+  acq.setAcqNbFrames(nframes)
+
   control.prepareAcq()
   control.startAcq()
 
@@ -122,6 +109,6 @@ This is a simple python test program:
   while lastimg !=nframes-1:
     time.sleep(0.01)
     lastimg = control.getStatus().ImageCounters.LastImageReady
- 
+
   # read the first image
   im0 = control.ReadImage(0)

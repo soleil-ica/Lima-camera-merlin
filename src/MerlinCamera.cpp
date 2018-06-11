@@ -65,8 +65,26 @@ private:
 //---------------------------
 
 Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_hostname(hostname), m_cmdPort(cmdPort), m_dataPort(dataPort), m_npixels(1), m_nrasters(1), 
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_acq_frame_nb(0) {
+  m_cmdHostname(hostname), m_cmdPort(cmdPort), m_dataHostname(hostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
+
+	DEB_CONSTRUCTOR();
+
+	//	DebParams::setModuleFlags(DebParams::AllFlags);
+	//	DebParams::setTypeFlags(DebParams::AllFlags);
+	//	DebParams::setFormatFlags(DebParams::AllFlags);
+	if(pipe(m_pipes))
+		THROW_HW_ERROR(Error) << "Can't open pipe";
+	m_acq_thread = new AcqThread(*this);
+	m_acq_thread->start();
+	if (!m_simulated) {
+		init();
+	}
+}
+
+Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
+  m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
 
 	DEB_CONSTRUCTOR();
 
@@ -93,10 +111,10 @@ Camera::~Camera() {
 void Camera::init() {
 	DEB_MEMBER_FUNCT();
 	m_merlin = new MerlinNet();
-	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_hostname, m_cmdPort);
-	m_merlin->connectToServer(m_hostname, m_cmdPort);
-	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_hostname, m_dataPort);
-	m_merlin->initServerDataPort(m_hostname, m_dataPort);
+	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_cmdHostname, m_cmdPort);
+	m_merlin->connectToServer(m_cmdHostname, m_cmdPort);
+	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_dataHostname, m_dataPort);
+	m_merlin->initServerDataPort(m_dataHostname, m_dataPort);
 	// get the initial values set by the Merlin H/W
 	getImageX(m_npixels);
 	getImageY(m_nrasters);
