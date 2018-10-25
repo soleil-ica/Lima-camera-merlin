@@ -141,8 +141,9 @@ void Camera::startAcq() {
         while(1) {
             DetectorStatus status;
             getDetectorStatus(status);
+	    std::cout << "PJB xxx status " << status << std::endl;
             if (status == Camera::DetectorStatus::ARMED) {
-                std::cout << "status " << status << std::endl;
+                std::cout << "--PJB xxx status " << status << std::endl;
                 break;
             }
             usleep(100);
