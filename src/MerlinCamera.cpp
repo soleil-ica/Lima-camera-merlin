@@ -138,15 +138,27 @@ void Camera::startAcq() {
     TrigMode trig_mode;
     getTrigMode(trig_mode);
     if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
+		int loop_counter = 0;
         while(1) {
             DetectorStatus status;
             getDetectorStatus(status);
-	    std::cout << "PJB xxx status " << status << std::endl;
+	    	std::cout << "PJB xxx status " << status << std::endl;
             if (status == Camera::DetectorStatus::ARMED) {
                 std::cout << "--PJB xxx status " << status << std::endl;
                 break;
             }
             usleep(100);
+
+			loop_counter = loop_counter + 1;
+
+			// The limit should be coordtinated with the
+			// usleep call. If the usleep is 100 then a
+			// factor of 10000 gives you seconds.
+			if(loop_counter > (10000 * 3)) {
+				std::cout << "RESTARTING!" << std::endl;
+				loop_counter = 0;
+				prepareAcq();
+			}
         }
     }
 	m_cond.broadcast();
