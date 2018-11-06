@@ -22,6 +22,8 @@
 
 #include <sstream>
 #include <iostream>
+#include <thread>
+#include <ostream>
 #include <string>
 #include <math.h>
 #include <chrono>
@@ -138,28 +140,40 @@ void Camera::startAcq() {
     TrigMode trig_mode;
     getTrigMode(trig_mode);
     if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
-		int loop_counter = 0;
+
+		// Creating 'unblock' vars
+		std::chrono::seconds maxwait(2);
+		auto start = std::chrono::steady_clock::now();
+
         while(1) {
-            DetectorStatus status;
-            getDetectorStatus(status);
-	    	std::cout << "PJB xxx status " << status << std::endl;
-            if (status == Camera::DetectorStatus::ARMED) {
-                std::cout << "--PJB xxx status " << status << std::endl;
-                break;
-            }
-            usleep(100);
+			DetectorStatus status;
+			getDetectorStatus(status);
 
-			loop_counter = loop_counter + 1;
+			if (status == Camera::DetectorStatus::ARMED) {
+				break;
+			}
 
-			// The limit should be coordtinated with the
-			// usleep call. If the usleep is 100 then a
-			// factor of 10000 gives you seconds.
-			if(loop_counter > (10000 * 3)) {
-				std::cout << "RESTARTING!" << std::endl;
-				loop_counter = 0;
+			if(std::chrono::steady_clock::now() > (start + maxwait)) {
+				DEB_TRACE() << " --- Entering the ugliest hack";
+
+				DEB_TRACE() << " --- Stopping ...";
+				stopAcquisition();
+
+				DEB_TRACE() << " --- Preparing ...";
 				prepareAcq();
+
+				DEB_TRACE() << " --- Starting";
+				startAcquisition();
+
+				DEB_TRACE() << " --- Restarted successfully";
+
+				start = std::chrono::steady_clock::now();
+			} else {
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
 			}
         }
+
+
     }
 	m_cond.broadcast();
 }
