@@ -22,6 +22,8 @@
 
 #include <sstream>
 #include <iostream>
+#include <thread>
+#include <ostream>
 #include <string>
 #include <math.h>
 #include <chrono>
@@ -34,6 +36,10 @@
 #include "lima/Debug.h"
 #include "lima/MiscUtils.h"
 #include "MerlinCamera.h"
+
+#include <yat/time/Timer.h>
+#include <yat/threading/Task.h>
+
 
 using namespace lima;
 using namespace lima::Merlin;
@@ -158,14 +164,72 @@ void Camera::startAcq() {
     TrigMode trig_mode;
     getTrigMode(trig_mode);
     if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
+
+		/* // Creating 'unblock' vars
+		std::chrono::seconds maxwait(2);
+		auto start = std::chrono::steady_clock::now();
+
         while(1) {
-            DetectorStatus status;
-            getDetectorStatus(status);
-            if (status == Camera::DetectorStatus::ARMED) {
-                DEB_TRACE() << "status " << status;
-                break;
-            }
-            usleep(100);
+
+			DetectorStatus status;
+			getDetectorStatus(status);
+
+			if (status == Camera::DetectorStatus::ARMED) {
+				break;
+			}
+
+			if(std::chrono::steady_clock::now() > (start + maxwait)) {
+				DEB_TRACE() << " --- Entering the ugliest hack";
+
+				DEB_TRACE() << " --- Stopping ...";
+				stopAcquisition();
+
+				DEB_TRACE() << " --- Preparing ...";
+				prepareAcq();
+
+				DEB_TRACE() << " --- Starting";
+				startAcquisition();
+
+				DEB_TRACE() << " --- Restarted successfully";
+
+				start = std::chrono::steady_clock::now();
+			} else {
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			}
+
+        } */
+        
+        //- Not CPP11 version
+        // Creating 'unblock' vars
+        yat::Timer chrono;
+
+        while(1) {
+
+			DetectorStatus status;
+			getDetectorStatus(status);
+
+			if (status == Camera::DetectorStatus::ARMED) {
+				break;
+			}
+
+			if(chrono.elapsed_sec() > 2) {
+				DEB_TRACE() << " --- Entering the ugliest hack";
+
+				DEB_TRACE() << " --- Stopping ...";
+				stopAcquisition();
+
+				DEB_TRACE() << " --- Preparing ...";
+				prepareAcq();
+
+				DEB_TRACE() << " --- Starting";
+				startAcquisition();
+
+				DEB_TRACE() << " --- Restarted successfully";
+
+				chrono.restart();
+			} else {
+				yat::Thread::sleep(10);
+			}
         }
     }
 	m_cond.broadcast();

@@ -52,10 +52,12 @@ DEB_CLASS_NAMESPC(DebModCamera, "Camera", "Merlin");
 
 public:
 
-	Camera(std::string& hostname, int cmdPort = 6341, int dataPort = 6342,
-	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
-	Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort = 6341, int dataPort = 6342,
-	       int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	Camera(std::string& hostname,
+            int cmdPort = 6341, int dataPort = 6342,
+	        int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	Camera(std::string& cmdHostname, std::string& dataHostname, 
+            int cmdPort = 6341, int dataPort = 6342,
+	        int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
 	~Camera();
 	
 	enum DetectorStatus {
@@ -66,18 +68,18 @@ public:
 	  ARMED,    ///< Armed for external start
 	  INIT,     ///< Initialising
 	};
-	enum ColourMode {Monochrome, Colour};
-	enum Switch {OFF, ON};
-	enum GainSetting {SLGM, LGM, HGM, SHGM};
-	enum Counter {COUNTER0, COUNTER1, BOTH};
-	enum Depth {BPP1=1, BPP6=6, BPP12=12, BPP24=24};
-	enum Trigger {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT};
-	enum TriggerOutput {TTL, LVDS, TTL_DELAYED, LVDS_DELAYED, FOLLOW_SHUTTER, ONE_PER_ACQ_BURST,
-			   SHUTTER_AND_SENSOR_READ, OUTPUT_BUSY};
-	enum TriggerLevel {NORMAL, INVERTED};
-	enum Threshold {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
-		THRESHOLD5, THRESHOLD6, THRESHOLD7};
-	enum FillMode { NOFILL, INSERTZERO, DISTRIBUTE, INTERPOLATE };
+	enum ColourMode     {Monochrome, Colour};
+	enum Switch         {OFF, ON};
+	enum GainSetting    {SLGM, LGM, HGM, SHGM};
+	enum Counter        {COUNTER0, COUNTER1, BOTH};
+	enum Depth          {BPP1=1, BPP6=6, BPP12=12, BPP24=24};
+	enum Trigger        {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT};
+	enum TriggerOutput  {TTL, LVDS, TTL_DELAYED, LVDS_DELAYED, FOLLOW_SHUTTER, ONE_PER_ACQ_BURST,
+			                SHUTTER_AND_SENSOR_READ, OUTPUT_BUSY};
+	enum TriggerLevel   {NORMAL, INVERTED};
+	enum Threshold      {THRESHOLD0, THRESHOLD1, THRESHOLD2, THRESHOLD3, THRESHOLD4,
+		                    THRESHOLD5, THRESHOLD6, THRESHOLD7};
+	enum FillMode       {NOFILL, INSERTZERO, DISTRIBUTE, INTERPOLATE };
 
 	void init();
 	void reset();
