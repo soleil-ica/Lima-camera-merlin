@@ -9,7 +9,7 @@
 
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaMerlin-amd64-Linux-gcc-shared-${mode}</artifactId>
-    <version>1.1.2</version>
+    <version>1.2.0</version>
 
     <packaging>nar</packaging>
     <name>LimaMerlin</name>
@@ -39,7 +39,7 @@
                 <dependency>
                     <groupId>fr.soleil.lib</groupId>
                     <artifactId>LimaCore-amd64-Linux-gcc-shared-${mode}</artifactId>
-                    <version>1.7.7</version>
+                    <version>1.7.8</version>
                 </dependency>     
                 
             </dependencies>
