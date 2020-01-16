@@ -106,6 +106,7 @@ void MerlinNet::disconnectFromServer() {
 	if (m_connected) {
 		shutdown(m_sock, 2);
 		close(m_sock);
+        close(m_data_sock);
 		m_connected = false;
 	}
 }
@@ -123,7 +124,8 @@ void MerlinNet::initServerDataPort(const string hostname, int port) {
 		}
 		if (connect (m_data_sock, (struct sockaddr *)&data_addr, sizeof (struct sockaddr_in)) == -1)
 		{
-		  THROW_HW_ERROR(Error) << "Failed to connect to data socket (errno: " << errno << ")";
+            close(m_data_sock);
+		    THROW_HW_ERROR(Error) << "Failed to connect to data socket (errno: " << errno << ")";
 		}
 	}
 }
