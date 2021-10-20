@@ -9,7 +9,7 @@
 
     <groupId>fr.soleil.lib.Lima.Camera</groupId>
     <artifactId>LimaMerlin-${aol}-shared-${mode}</artifactId>
-    <version>1.2.3</version>
+    <version>1.2.4</version>
 	
     <packaging>nar</packaging>
     <name>LimaMerlin</name>
@@ -27,15 +27,8 @@
             <artifactId>LimaCore-${aol}-shared-${mode}</artifactId>
             <version>1.7.10</version>
         </dependency>
-		<!-- add NexusCPP and force to 3.3.6 to avoid getting 3.3.7 (don't know why ...) -->
-		<dependency>
-			<groupId>fr.soleil.lib</groupId>
-			<artifactId>NexusCPP-${aol}-shared-${mode}</artifactId>
-			<version>3.3.6</version>
-		</dependency>
     </dependencies>
 
-	
     <build>
         <plugins>
             <plugin>
