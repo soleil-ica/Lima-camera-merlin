@@ -90,7 +90,7 @@ Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, in
 
 Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
   m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12),m_start_acq_finished(false) {
 
 	DEB_CONSTRUCTOR();
 
@@ -143,24 +143,46 @@ void Camera::reset() {
 }
 
 void Camera::prepareAcq() {
-	DEB_MEMBER_FUNCT();
+	DEB_MEMBER_FUNCT();	
 	if (m_continuous == Camera::ON) {
 		setFramesPerTrigger(m_nb_frames);
 	}
-}
+	//If the trigger is internal multi, m_acq_frame_nb is initialized to 0 
+	//and we "arm" the acquisition before the call of the snap() function
+	if (m_trigger_mode == IntTrigMult)
+	{
+		m_acq_frame_nb = 0;
+		startAcquisition();
+	}
 
+}
 void Camera::startAcq() {
 	DEB_MEMBER_FUNCT();
-	m_acq_frame_nb = 0;
+	AutoMutex aLock(m_cond.mutex());
 	StdBufferCbMgr& buffer_mgr = m_bufferCtrlObj.getBuffer();
 	buffer_mgr.setStartTimestamp(Timestamp::now());
-	AutoMutex aLock(m_cond.mutex());
 	m_wait_flag = false;
 	m_quit = false;
-    // This is a kludge for Merlin running in LabView, YUK!
+
+	// This is a kludge for Merlin running in LabView, YUK!
 	// It's absolute crap I'm forced to put startAcq here whereas it should be
 	// in the thread just so we can wait for the crappy labview to assert armed
-    startAcquisition();
+
+
+	//If the trigger is internal multi, the new member boolean m_start_acq_finished is initialized to false. 
+	//it will pass to true only when the thread is finished and when the image taken.
+	if (m_trigger_mode == IntTrigMult)
+	{
+		m_start_acq_finished = false;
+		//Instead of starting the acquisition, internal multi trigger uses softTrigger. (startAcquisition() is called in the prepare() funtion above)
+		softTrigger();
+	}
+	else 
+	{
+		m_acq_frame_nb = 0;
+		startAcquisition();
+	}
+    
     TrigMode trig_mode;
     getTrigMode(trig_mode);
     if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
@@ -324,16 +346,18 @@ int Camera::getNbHwAcquiredFrames() {
 
 void Camera::AcqThread::threadFunction() {
 	DEB_MEMBER_FUNCT();
-//	AutoMutex aLock(m_cam.m_cond.mutex());
+	//AutoMutex aLock(m_cam.m_cond.mutex());
 	StdBufferCbMgr& buffer_mgr = m_cam.m_bufferCtrlObj.getBuffer();
-
-	while (!m_cam.m_quit) {
-		while (m_cam.m_wait_flag && !m_cam.m_quit) {
+	while (!m_cam.m_quit) 
+	{
+		while (m_cam.m_wait_flag && !m_cam.m_quit) 
+		{
 			DEB_TRACE() << "Wait for start acquisition";
 			m_cam.m_thread_running = false;
 			AutoMutex lock(m_cam.m_cond.mutex());
 			m_cam.m_cond.wait();
 		}
+		//if quit is requested (requested only by destructor)
 		if (m_cam.m_quit)
 			return;
 		DEB_TRACE() << "AcqThread Running";
@@ -375,13 +399,16 @@ void Camera::AcqThread::threadFunction() {
 			default:
 			  DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
 			}
+			//This member variable is used only for trigger internal multi purpose:
+			//It is initialized in the startAcq() function and it passes at true only once the thread is finished
+			m_cam.m_start_acq_finished = true;
 		}
 		auto t2 = Clock::now();
 		DEB_TRACE() << "Delta t2-t1: " << std::chrono::duration_cast < std::chrono::nanoseconds
 				> (t2 - t1).count() << " nanoseconds";
 		DEB_TRACE() << " AcqThread::threadfunction() Setting thread running flag to false";
 		AutoMutex lock(m_cam.m_cond.mutex());
-//		aLock.lock();
+		//aLock.lock();
 		m_cam.m_thread_running = false;
 		m_cam.m_wait_flag = true;
 	}
@@ -508,9 +535,12 @@ void Camera::setTrigMode(TrigMode mode) {
 	DEB_PARAM() << DEB_VAR1(mode);
     switch (mode) {
     case IntTrig:
-    case IntTrigMult:
-        setTriggerStartType(Camera::INTERNAL);
+		setTriggerStartType(Camera::INTERNAL);
         setTriggerStopType(Camera::INTERNAL);
+		break;
+    case IntTrigMult:
+		setTriggerStartType(Camera::MUTLI_TRIGGER_FRAME_SOFT);
+		setTriggerStopType(Camera::INTERNAL);
         break;
     case ExtTrigSingle:
         setTriggerStartType(Camera::RISING_EDGE_TTL);
@@ -1037,6 +1067,17 @@ void Camera::getDetectorStatus(DetectorStatus &status) {
 	requestGet(DETECTORSTATUS, stat);
     DEB_TRACE() << "Detector status returned: " << stat ;
 	status = static_cast<DetectorStatus>(stat);
+	//force prepare() to stay in STANDBY (for startAcq command in trig internal multi)
+	//keep STANDBY state after prepare_acq() called (needed for internal multi trigger)
+	if (m_trigger_mode == IntTrigMult && m_acq_frame_nb == 0 && status == Camera::DetectorStatus::ARMED)
+	{
+		status = Camera::DetectorStatus::IDLE;
+	}
+	//keep RUNNING state after start_acq is finished. 
+	if (m_trigger_mode == IntTrigMult && m_start_acq_finished && status == Camera::DetectorStatus::BUSY)
+	{
+		status = Camera::DetectorStatus::READOUT;
+	}
 }
 
 void Camera::getImageX(int &imagex) {
