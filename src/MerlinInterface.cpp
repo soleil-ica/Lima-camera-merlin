@@ -97,7 +97,7 @@ void Interface::getStatus(StatusType& status) {
 			status.det = DetIdle;
 			status.acq = AcqReady;
 		} 
-		//This mode has been added to handle the internal multi trigger
+		//This state has been added to handle the internal multi trigger
 		else if (detstat == Camera::DetectorStatus::READOUT) {
 				status.det = DetIdle;
 	            status.acq = AcqReady;

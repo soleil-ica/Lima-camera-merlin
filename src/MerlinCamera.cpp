@@ -90,7 +90,7 @@ Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, in
 
 Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
   m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12),m_start_acq_finished(false) {
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_start_acq_finished(false) {
 
 	DEB_CONSTRUCTOR();
 
@@ -147,8 +147,8 @@ void Camera::prepareAcq() {
 	if (m_continuous == Camera::ON) {
 		setFramesPerTrigger(m_nb_frames);
 	}
-	//If the trigger is internal multi, m_acq_frame_nb is initialized to 0 
-	//and we "arm" the acquisition before the call of the snap() function
+	//If the trigger type is "Internal Trigger Multi", we force m_acq_frame_nb to 0 as it will no longer be set to 0 in startAcq()
+	//and we "arm" the acquisition as it will no longer be done in the startAcq() function.
 	if (m_trigger_mode == IntTrigMult)
 	{
 		m_acq_frame_nb = 0;
@@ -169,8 +169,8 @@ void Camera::startAcq() {
 	// in the thread just so we can wait for the crappy labview to assert armed
 
 
-	//If the trigger is internal multi, the new member boolean m_start_acq_finished is initialized to false. 
-	//it will pass to true only when the thread is finished and when the image taken.
+	//If the trigger type is "Internal Trigger Multi", a new variable is used to set the startAcq thread state. 
+	//it will be passed to true only when the thread is finished and when the image has been taken.
 	if (m_trigger_mode == IntTrigMult)
 	{
 		m_start_acq_finished = false;
@@ -185,7 +185,7 @@ void Camera::startAcq() {
     
     TrigMode trig_mode;
     getTrigMode(trig_mode);
-    if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate ||trig_mode == ExtStartStop) {
+    if (trig_mode == ExtTrigMult || trig_mode == ExtTrigSingle || trig_mode == ExtGate || trig_mode == ExtStartStop) {
 
 		/* // Creating 'unblock' vars
 		std::chrono::seconds maxwait(2);
@@ -400,7 +400,7 @@ void Camera::AcqThread::threadFunction() {
 			  DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
 			}
 			//This member variable is used only for trigger internal multi purpose:
-			//It is initialized in the startAcq() function and it passes at true only once the thread is finished
+			//It is initialized in the startAcq() function and it is passed at true only once the thread is finished
 			m_cam.m_start_acq_finished = true;
 		}
 		auto t2 = Clock::now();
@@ -1067,8 +1067,9 @@ void Camera::getDetectorStatus(DetectorStatus &status) {
 	requestGet(DETECTORSTATUS, stat);
     DEB_TRACE() << "Detector status returned: " << stat ;
 	status = static_cast<DetectorStatus>(stat);
-	//force prepare() to stay in STANDBY (for startAcq command in trig internal multi)
-	//keep STANDBY state after prepare_acq() called (needed for internal multi trigger)
+
+	//In the case of trigger internal multi: We forced "prepare()" command to stay in STANDBY state.
+	//this allows the device to keep a STANDBY state even after the call of prepare_acq() command which is needed for internal multi trigger
 	if (m_trigger_mode == IntTrigMult && m_acq_frame_nb == 0 && status == Camera::DetectorStatus::ARMED)
 	{
 		status = Camera::DetectorStatus::IDLE;
