@@ -87,7 +87,8 @@ void Interface::getStatus(StatusType& status) {
 		} else if (detstat == Camera::DetectorStatus::ARMED) {
             	status.det = DetIdle;
 	            status.acq = AcqReady;
-		} else {
+		} 
+		else {
 			status.det = DetIdle;
 			status.acq = AcqRunning;
 		}
@@ -95,7 +96,13 @@ void Interface::getStatus(StatusType& status) {
 		if (detstat == Camera::DetectorStatus::IDLE) {
 			status.det = DetIdle;
 			status.acq = AcqReady;
-		} else {
+		} 
+		//This state has been added to handle the internal multi trigger
+		else if (detstat == Camera::DetectorStatus::READOUT) {
+				status.det = DetIdle;
+	            status.acq = AcqReady;
+		}
+		else {
 			status.det = DetReadout;
 			status.acq = AcqRunning;
 		}

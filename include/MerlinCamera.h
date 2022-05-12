@@ -67,13 +67,14 @@ public:
 	  ERROR,    ///< Error
 	  ARMED,    ///< Armed for external start
 	  INIT,     ///< Initialising
+	  READOUT,  ///< Used for Internal Multi purpose
 	};
 	enum ColourMode     {Monochrome, Colour};
 	enum Switch         {OFF, ON};
 	enum GainSetting    {SLGM, LGM, HGM, SHGM};
 	enum Counter        {COUNTER0, COUNTER1, BOTH};
 	enum Depth          {BPP1=1, BPP6=6, BPP12=12, BPP24=24};
-	enum Trigger        {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT};
+	enum Trigger        {INTERNAL, RISING_EDGE_TTL, FALLING_EDGE_TTL, RISING_EDGE_LVDS, FALLING_EDGE_LVDS, SOFT, MUTLI_TRIGGER_FRAME_SOFT};
 	enum TriggerOutput  {TTL, LVDS, TTL_DELAYED, LVDS_DELAYED, FOLLOW_SHUTTER, ONE_PER_ACQ_BURST,
 			                SHUTTER_AND_SENSOR_READ, OUTPUT_BUSY};
 	enum TriggerLevel   {NORMAL, INVERTED};
@@ -281,6 +282,7 @@ private:
 	FillMode m_fillMode;
 	ColourMode m_colourMode;
 	Switch m_continuous;
+	bool m_start_acq_finished;
 
 
 	// Buffer control object
@@ -363,6 +365,7 @@ inline std::ostream& operator <<(std::ostream& os, Camera::Trigger const &trigge
 	case Camera::RISING_EDGE_LVDS: name = "RisingEdgeLVDS";	break;
 	case Camera::FALLING_EDGE_LVDS: name = "FallingEdgeLVDS";	break;
 	case Camera::SOFT: name = "Soft";	break;
+	case Camera::MUTLI_TRIGGER_FRAME_SOFT: name = "Multi frame soft";	break;
 	}
 	return os << name;
 }
