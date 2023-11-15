@@ -16,9 +16,9 @@
     <description>This module controls the Merlin Camera</description>
 	
     <scm>
-        <connection>scm:git:git://github.com/soleil-ica/Lima.git</connection>
-        <developerConnection>scm:git:git://github.com/soleil-ica/Lima.git</developerConnection>
-        <url>https://github.com/soleil-ica/Lima</url>
+        <connection>scm:git:git://github.com/soleil-ica/Lima-camera-merlin.git</connection>
+        <developerConnection>scm:git:git://github.com/soleil-ica/Lima-camera-merlin.git</developerConnection>
+        <url>https://github.com/soleil-ica/Lima-camera-merlin</url>
     </scm>
 
     <dependencies>
