@@ -283,6 +283,7 @@ private:
 	ColourMode m_colourMode;
 	Switch m_continuous;
 	bool m_start_acq_finished;
+	bool m_header_acquired;
 
 
 	// Buffer control object

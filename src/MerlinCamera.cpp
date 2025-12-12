@@ -90,7 +90,7 @@ Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, in
 
 Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
   m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_start_acq_finished(false) {
+  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_start_acq_finished(false), m_header_acquired(false) {
 
 	DEB_CONSTRUCTOR();
 
@@ -152,6 +152,7 @@ void Camera::prepareAcq() {
 	if (m_trigger_mode == IntTrigMult)
 	{
 		m_acq_frame_nb = 0;
+		m_header_acquired = false;
 		startAcquisition();
 	}
 
@@ -180,6 +181,7 @@ void Camera::startAcq() {
 	else 
 	{
 		m_acq_frame_nb = 0;
+		m_header_acquired = false;
 		startAcquisition();
 	}
     
@@ -296,8 +298,9 @@ int Camera::readFrame(void *bptr, int frame_nb, double timeout_secs) {
 	{
 	case MerlinNet::PROCEED:
 		DEB_TRACE() << "Proceeding";
-		if (frame_nb == 0) {
+		if (!m_header_acquired) {
 			m_merlin->getHeader(bptr);
+			m_header_acquired = true;
 		}
 		DEB_TRACE() << "Got header";
 		loop = (m_counter == Camera::BOTH) ? 2 : 1;
@@ -368,40 +371,47 @@ void Camera::AcqThread::threadFunction() {
 		bool continueFlag = true;
 		while (continueFlag && (!m_cam.m_nb_frames || m_cam.m_acq_frame_nb < m_cam.m_nb_frames)) {
 
-			DEB_TRACE() << "before getFrameBufferptr";
-			void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
-			HwFrameInfoType frame_info;
-			int rc = m_cam.readFrame(bptr, m_cam.m_acq_frame_nb, timeout);
-			switch (rc) {
-			case Camera::STOP_ISSUED:
-				m_cam.stopAcquisition();
-				timeout = 0.25;
-				DEB_TRACE() << "Stop called, timeout modified to 0.25 secs";
-				break;
-			case Camera::ABORT_ISSUED:
-				m_cam.abortAcquisition();
-                continueFlag = false;
-				DEB_TRACE() << "Abort called";
-				break;
-			case Camera::STOPPED_AND_TIMEOUT:
-				continueFlag = false;
-				DEB_TRACE() << "Stopped with read timeout";
-				break;
-			case Camera::READ_OK:
-				frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
-				if ((continueFlag = buffer_mgr.newFrameReady(frame_info))) {
-					DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
-					AutoMutex lock(m_cam.m_cond.mutex());
-					++m_cam.m_acq_frame_nb;
-					DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
+			try
+			{
+				DEB_TRACE() << "before getFrameBufferptr";
+				void* bptr = buffer_mgr.getFrameBufferPtr(m_cam.m_acq_frame_nb);
+				HwFrameInfoType frame_info;
+				int rc = m_cam.readFrame(bptr, m_cam.m_acq_frame_nb, timeout);
+				switch (rc) {
+				case Camera::STOP_ISSUED:
+					m_cam.stopAcquisition();
+					timeout = 0.25;
+					DEB_TRACE() << "Stop called, timeout modified to 0.25 secs";
+					break;
+				case Camera::ABORT_ISSUED:
+					m_cam.abortAcquisition();
+					continueFlag = false;
+					DEB_TRACE() << "Abort called";
+					break;
+				case Camera::STOPPED_AND_TIMEOUT:
+					continueFlag = false;
+					DEB_TRACE() << "Stopped with read timeout";
+					break;
+				case Camera::READ_OK:
+					frame_info.acq_frame_nb = m_cam.m_acq_frame_nb;
+					if ((continueFlag = buffer_mgr.newFrameReady(frame_info))) {
+						DEB_TRACE() << "acqThread::threadFunction() newframe ready ";
+						AutoMutex lock(m_cam.m_cond.mutex());
+						++m_cam.m_acq_frame_nb;
+						DEB_TRACE() << "acquired " << m_cam.m_acq_frame_nb << " frames, required " << m_cam.m_nb_frames << " frames";
+					}
+					break;
+				default:
+				DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
 				}
-				break;
-			default:
-			  DEB_TRACE() << " AcqThread::threadfunction() This should not happen: " << DEB_VAR1(rc);
+				//This member variable is used only for trigger internal multi purpose:
+				//It is initialized in the startAcq() function and it is passed at true only once the thread is finished
+				m_cam.m_start_acq_finished = true;
 			}
-			//This member variable is used only for trigger internal multi purpose:
-			//It is initialized in the startAcq() function and it is passed at true only once the thread is finished
-			m_cam.m_start_acq_finished = true;
+			catch (const MerlinNet::TimeoutException& e)
+			{
+				DEB_TRACE() << e.what();
+			}
 		}
 		auto t2 = Clock::now();
 		DEB_TRACE() << "Delta t2-t1: " << std::chrono::duration_cast < std::chrono::nanoseconds
