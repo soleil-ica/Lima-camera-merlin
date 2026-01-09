@@ -111,7 +111,7 @@ void MerlinNet::disconnectFromServer() {
 	}
 }
 
-void MerlinNet::initServerDataPort(const string hostname, int port) {
+void MerlinNet::initServerDataPort(const string hostname, int port, int socket_rcv_timeout, int socket_snd_timeout) {
 	DEB_MEMBER_FUNCT();
 	struct sockaddr_in data_addr;
 
@@ -123,12 +123,13 @@ void MerlinNet::initServerDataPort(const string hostname, int port) {
 		  THROW_HW_ERROR(Error) << "MerlinNet::initServerDataPort() Failed when creating a data socket. (errno: " << errno << ")";
 		}
 
-		// TODO : make timeout configurable with the specific device
-		struct timeval tv;
-		tv.tv_sec = 5;
-		tv.tv_usec = 0;
-		setsockopt(m_data_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-		setsockopt(m_data_sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+		struct timeval rcv_tv, snd_tv;
+		rcv_tv.tv_sec = socket_rcv_timeout;
+		rcv_tv.tv_usec = 0;
+		snd_tv.tv_sec = socket_snd_timeout;
+		snd_tv.tv_usec = 0;
+		setsockopt(m_data_sock, SOL_SOCKET, SO_RCVTIMEO, &rcv_tv, sizeof(rcv_tv));
+		setsockopt(m_data_sock, SOL_SOCKET, SO_SNDTIMEO, &snd_tv, sizeof(snd_tv));
 
 		if (connect (m_data_sock, (struct sockaddr *)&data_addr, sizeof (struct sockaddr_in)) == -1)
 		{
@@ -339,7 +340,7 @@ int MerlinNet::socket_read(int fd, void *buf, size_t count) {
 		else
 		{
 			THROW_HW_ERROR(Error)
-					<< "MerlinNet::getFrameHeader(): read from socket error (errno: "
+					<< "MerlinNet::socket_read(): read from socket error (errno: "
 					<< errno << ")";
 		}
 	}

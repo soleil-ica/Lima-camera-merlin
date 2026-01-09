@@ -70,9 +70,9 @@ private:
 // @brief  Ctor
 //---------------------------
 
-Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_cmdHostname(hostname), m_cmdPort(cmdPort), m_dataHostname(hostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
+Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate, int socketRcvTimeout, int socketSndTimeout) :
+  m_cmdHostname(hostname), m_cmdPort(cmdPort), m_dataHostname(hostname), m_dataPort(dataPort), m_socket_rcv_timeout(socketRcvTimeout), m_socket_snd_timeout(socketSndTimeout),
+  m_npixels(1), m_nrasters(1), m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12) {
 
 	DEB_CONSTRUCTOR();
 
@@ -88,9 +88,9 @@ Camera::Camera(std::string& hostname, int cmdPort, int dataPort, int npixels, in
 	}
 }
 
-Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate) :
-  m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_npixels(1), m_nrasters(1),
-  m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_start_acq_finished(false), m_header_acquired(false) {
+Camera::Camera(std::string& cmdHostname, std::string& dataHostname, int cmdPort, int dataPort, int npixels, int nrasters, int nchips, bool simulate, int socketRcvTimeout, int socketSndTimeout) :
+  m_cmdHostname(cmdHostname), m_cmdPort(cmdPort), m_dataHostname(dataHostname), m_dataPort(dataPort), m_socket_rcv_timeout(socketRcvTimeout), m_socket_snd_timeout(socketSndTimeout),
+  m_npixels(1), m_nrasters(1), m_nchips(nchips), m_simulated(simulate), m_image_type(Bpp12), m_start_acq_finished(false), m_header_acquired(false) {
 
 	DEB_CONSTRUCTOR();
 
@@ -120,7 +120,7 @@ void Camera::init() {
 	DEB_TRACE() << "Merlin connecting to " << DEB_VAR2(m_cmdHostname, m_cmdPort);
 	m_merlin->connectToServer(m_cmdHostname, m_cmdPort);
 	DEB_TRACE() << "Merlin initialising the data port " << DEB_VAR2(m_dataHostname, m_dataPort);
-	m_merlin->initServerDataPort(m_dataHostname, m_dataPort);
+	m_merlin->initServerDataPort(m_dataHostname, m_dataPort, m_socket_rcv_timeout, m_socket_snd_timeout);
 	// get the initial values set by the Merlin H/W
 	getImageX(m_npixels);
 	getImageY(m_nrasters);

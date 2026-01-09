@@ -43,7 +43,7 @@ public:
 	void sendCmd(string cmd, string& value);
 	void connectToServer (const string hostname, int port);
 	void disconnectFromServer();
-	void initServerDataPort(const string hostname, int udpPort);
+	void initServerDataPort(const string hostname, int port, int socket_rcv_timeout, int socket_snd_timeout);
 	void getHeader(void* bptr);
 	void getFrameHeader(void* bptr, int npoints);
 	void getData(uint8_t* bptr, int npoints);
@@ -53,10 +53,10 @@ public:
 
 	class TimeoutException : public std::exception {
     public:
-        explicit TimeoutException(const std::string& msg) : message(msg) {}
-        const char* what() const noexcept override { return message.c_str(); }
+        explicit TimeoutException(const std::string& msg) : m_message(msg) {}
+        const char* what() const noexcept override { return m_message.c_str(); }
     private:
-        std::string message;
+        std::string m_message;
     };
 
 private:
