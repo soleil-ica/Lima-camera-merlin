@@ -54,10 +54,12 @@ public:
 
 	Camera(std::string& hostname,
             int cmdPort = 6341, int dataPort = 6342,
-	        int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	        int npixels = 512, int nrasters = 512, int nchips = 4, 
+			bool simulate=false, int socketRcvTimeout=5, int socketSndTimeout=5);
 	Camera(std::string& cmdHostname, std::string& dataHostname, 
             int cmdPort = 6341, int dataPort = 6342,
-	        int npixels = 512, int nrasters = 512, int nchips = 4, bool simulate=false);
+	        int npixels = 512, int nrasters = 512, int nchips = 4,
+			bool simulate=false, int socketRcvTimeout=5, int socketSndTimeout=5);
 	~Camera();
 	
 	enum DetectorStatus {
@@ -283,6 +285,9 @@ private:
 	ColourMode m_colourMode;
 	Switch m_continuous;
 	bool m_start_acq_finished;
+	bool m_header_acquired;
+	int m_socket_rcv_timeout;			// data socket read timeout
+	int m_socket_snd_timeout;			// data socket write timeout
 
 
 	// Buffer control object

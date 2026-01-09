@@ -43,13 +43,21 @@ public:
 	void sendCmd(string cmd, string& value);
 	void connectToServer (const string hostname, int port);
 	void disconnectFromServer();
-	void initServerDataPort(const string hostname, int udpPort);
+	void initServerDataPort(const string hostname, int port, int socket_rcv_timeout, int socket_snd_timeout);
 	void getHeader(void* bptr);
 	void getFrameHeader(void* bptr, int npoints);
 	void getData(uint8_t* bptr, int npoints);
 	void getData(uint16_t* bptr, int npoints);
 	void getData(uint32_t* bptr, int npoints);
 	int select(int sfd, timeval& tv);
+
+	class TimeoutException : public std::exception {
+    public:
+        explicit TimeoutException(const std::string& msg) : m_message(msg) {}
+        const char* what() const noexcept override { return m_message.c_str(); }
+    private:
+        std::string m_message;
+    };
 
 private:
 	mutable Cond m_cond;
@@ -64,6 +72,7 @@ private:
 	void swab(uint8_t* iptr, int npoints);
 	void swab(uint16_t* iptr, int npoints);
 	void swab(uint32_t* iptr, int npoints);
+	int socket_read(int fd, void *buf, size_t count);
 };
 
 } // namespace Merlin
