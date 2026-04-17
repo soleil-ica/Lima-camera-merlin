@@ -335,7 +335,7 @@ int MerlinNet::socket_read(int fd, void *buf, size_t count) {
 	if ((read_count = read(fd, buf, count)) <= 0) {
 		if (errno == EAGAIN || errno == EWOULDBLOCK)
 		{
-			throw TimeoutException("Timeout on socket read (errno: " + std::to_string(errno) + ")");
+			throw TimeoutException("Timeout on socket read (errno: " + std::to_string(static_cast<long long>(errno)) + ")");
 		}
 		else
 		{

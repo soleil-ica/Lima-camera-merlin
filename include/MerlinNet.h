@@ -52,12 +52,14 @@ public:
 	int select(int sfd, timeval& tv);
 
 	class TimeoutException : public std::exception {
-    public:
-        explicit TimeoutException(const std::string& msg) : m_message(msg) {}
-        const char* what() const noexcept override { return m_message.c_str(); }
-    private:
-        std::string m_message;
-    };
+	public:
+		explicit TimeoutException(const std::string& msg) : m_message(msg) {}
+		virtual ~TimeoutException() throw() {}
+		virtual const char* what() const throw() { return m_message.c_str(); }
+
+	private:
+		std::string m_message;
+	};
 
 private:
 	mutable Cond m_cond;
